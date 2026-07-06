@@ -9,7 +9,7 @@
   **verify-before-exec**: fetch the pinned agent, SHA-256 it, refuse if it drifts from the registry's
   `sha8`, then run it in Pyodide. (Verified end-to-end headlessly.)
 - **`connect.html`** is the client the **QR code** opens: a phone/other device scans it, connects to the
-  host tab over **WebRTC (PeerJS)** — a DTLS-encrypted P2P data channel — and calls the MCP. The QR
+  host tab over **WebRTC (Trystero over public Nostr relays — serverless)** — a DTLS-encrypted P2P data channel — and calls the MCP. The QR
   carries a **one-time token**; only a scanner who has it is authorized. No server sees the traffic.
 
 ```
@@ -38,8 +38,8 @@
   pinned `sha8` (supply-chain safety, even though the code is fetched from a public URL).
 - **Access:** the QR carries a fresh per-session token; the host rejects RPCs without it.
 - **Confidentiality:** the WebRTC data channel is DTLS-encrypted and peer-to-peer.
-- **Signaling** uses the public PeerJS broker (for NAT traversal only — no payload passes through it).
+- **Signaling** uses public Nostr relays via Trystero (for peer discovery + NAT traversal only — no payload passes through them). The host self-assigns the room id, so the QR renders instantly regardless of relay status.
   Swap in your own PeerServer for a fully self-owned path.
 
-_A `rapp-static-mcp/1.0` MCP whose runtime is a browser tab. Welds Pyodide + PeerJS + the RAR onto the
+_A `rapp-static-mcp/1.0` MCP whose runtime is a browser tab. Welds Pyodide + Trystero + the RAR onto the
 static-MCP pattern._
