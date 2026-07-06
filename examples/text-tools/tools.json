@@ -2,7 +2,7 @@
   "schema": "rapp-static-mcp/1.0",
   "name": "text-tools",
   "description": "Hash, slugify, count, and case-convert text. A pure-compute rapp-static-mcp.",
-  "generated": "2026-07-06T18:43:21.184Z",
+  "generated": "2026-07-06T18:46:32.659Z",
   "protocolVersion": "2025-06-18",
   "api_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",
   "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",

@@ -2,7 +2,7 @@
   "schema": "rapp-static-api/1.0",
   "name": "text-tools",
   "kind": "mcp-catalog",
-  "generated": "2026-07-06T18:43:21.184Z",
+  "generated": "2026-07-06T18:46:32.659Z",
   "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",
   "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json",
   "protocolVersion": "2025-06-18",

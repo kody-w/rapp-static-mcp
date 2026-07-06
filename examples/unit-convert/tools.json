@@ -2,7 +2,7 @@
   "schema": "rapp-static-mcp/1.0",
   "name": "unit-convert",
   "description": "Convert length, mass, and temperature units. A pure-compute rapp-static-mcp — no data, no server.",
-  "generated": "2026-07-06T18:43:21.074Z",
+  "generated": "2026-07-06T18:46:32.694Z",
   "protocolVersion": "2025-06-18",
   "api_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",
   "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",

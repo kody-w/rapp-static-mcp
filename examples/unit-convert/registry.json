@@ -2,7 +2,7 @@
   "schema": "rapp-static-api/1.0",
   "name": "unit-convert",
   "kind": "mcp-catalog",
-  "generated": "2026-07-06T18:43:21.074Z",
+  "generated": "2026-07-06T18:46:32.694Z",
   "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",
   "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json",
   "protocolVersion": "2025-06-18",
