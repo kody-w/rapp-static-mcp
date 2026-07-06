@@ -67,11 +67,11 @@
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const BASE = new URL('.', location.href).href;                 // brainstem is served next to this page
 const TOKEN = Math.random().toString(36).slice(2,10);
+const RELAYS = ['wss://relay.damus.io','wss://nos.lol','wss://relay.primal.net','wss://relay.nostr.net','wss://nostr.wine']; // curated known-good Nostr relays for serverless WebRTC signaling
 let pyodide=null, REG=null, MEM=null, TWIN=null;
 const S={}; // status flags
 function status(){ $('#status').innerHTML =
@@ -151,25 +151,27 @@ async function mcp(req){
 }
 window.__mcp = mcp;   // exposed for headless verification
 
-// ── WebRTC bridge + QR ──────────────────────────────────────────────────
-function startPeer(){
+// ── WebRTC bridge (Trystero over public Nostr relays — serverless) + QR ─────
+// We choose the room id ourselves, so the QR renders INSTANTLY, independent of any signaling server.
+async function startPeer(){
+  const roomId = 'brn-' + Math.random().toString(36).slice(2,10);
+  const connectUrl = BASE+'connect.html#room='+roomId+'&token='+TOKEN;
+  $('#peerid').textContent = roomId; $('#token').textContent = TOKEN;
+  $('#qr').innerHTML=''; try{ new QRCode($('#qr'), { text:connectUrl, width:180, height:180 }); }catch(e){ $('#qr').textContent=connectUrl; }
+  S.rtc='wait'; status(); $('#peers').innerHTML = '<a href="'+connectUrl+'" target="_blank" style="color:#5fd0ff">open client link ↗</a>';
   try{
-    const peer = new Peer();
-    peer.on('open', pid=>{
-      S.rtc='on'; status(); $('#peerid').textContent=pid; $('#token').textContent=TOKEN;
-      const connectUrl = BASE+'connect.html#peer='+pid+'&token='+TOKEN;
-      $('#qr').innerHTML=''; new QRCode($('#qr'), { text:connectUrl, width:180, height:180 });
+    const { joinRoom } = await import('https://esm.sh/trystero@0.21.5/nostr');
+    const room = joinRoom({ appId: 'rapp-brainstem-mcp', relayUrls: RELAYS, relayRedundancy: 4 }, roomId);
+    const [sendRes, getReq] = room.makeAction('mcp');
+    getReq(async (msg, peerId) => {
+      if(!msg || msg.token !== TOKEN){ sendRes({ jsonrpc:'2.0', id: msg&&msg.rpc&&msg.rpc.id, error:{code:-32000,message:'bad token'} }, peerId); return; }
+      sendRes(await mcp(msg.rpc), peerId);
     });
-    peer.on('error', ()=>{ S.rtc='err'; status(); $('#qr').innerHTML='<div style="color:#333;padding:20px">WebRTC signaling unavailable here — the in-tab MCP still runs.</div>'; });
-    peer.on('connection', conn=>{
-      conn.on('data', async d=>{
-        let m; try{ m=typeof d==='string'?JSON.parse(d):d; }catch{ return; }
-        if(m.token!==TOKEN){ conn.send({jsonrpc:'2.0',id:m.id,error:{code:-32000,message:'bad token'}}); return; }
-        const res = await mcp(m.rpc||m); conn.send(res);
-      });
-      conn.on('open', ()=>{ const el=$('#peers'); el.textContent='🟢 client connected: '+conn.peer; });
-    });
-  }catch(e){ S.rtc='err'; status(); }
+    room.onPeerJoin(id => { $('#peers').innerHTML = '🟢 client connected: <code>'+id.slice(0,8)+'</code>'; });
+    room.onPeerLeave(id => { $('#peers').textContent = 'client left'; });
+    S.rtc='on'; status();
+    window.__room = room;
+  }catch(e){ S.rtc='err'; status(); $('#peers').innerHTML += ' <span class="muted">(signaling import failed; QR link still works once reachable)</span>'; }
 }
 
 // ── console buttons ──
