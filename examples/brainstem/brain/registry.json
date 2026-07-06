@@ -1,0 +1,40 @@
+{
+  "schema": "rar/1.0",
+  "name": "static-brainstem",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/brainstem",
+  "runtime": "pyodide",
+  "generated": "2026-07-06T18:53:14.298Z",
+  "count": 3,
+  "agents": [
+    {
+      "id": "greeter",
+      "name": "Greeter",
+      "when_to_use": "greet welcome or introduce someone",
+      "entry": "perform",
+      "lang": "python",
+      "module_path": "brain/agents/greeter.py",
+      "sha8": "b14afdad0b77",
+      "module_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/brainstem/brain/agents/greeter.py"
+    },
+    {
+      "id": "meeting-cost",
+      "name": "Meeting Cost",
+      "when_to_use": "estimate the cost or price of a meeting",
+      "entry": "perform",
+      "lang": "python",
+      "module_path": "brain/agents/meeting_cost.py",
+      "sha8": "75bc9223180a",
+      "module_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/brainstem/brain/agents/meeting_cost.py"
+    },
+    {
+      "id": "recall",
+      "name": "Recall",
+      "when_to_use": "remember recall or look up from memory",
+      "entry": "perform",
+      "lang": "python",
+      "module_path": "brain/agents/recall.py",
+      "sha8": "299505518f49",
+      "module_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/brainstem/brain/agents/recall.py"
+    }
+  ]
+}

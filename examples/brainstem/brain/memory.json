@@ -1,0 +1,6 @@
+{ "owner":"kody-w", "memories":[
+  { "id":"m1", "text":"Builds local-first, single-file tools; ships to kody-w.github.io.", "tags":["style"] },
+  { "id":"m2", "text":"Prefers RAPP agents (single-file *_agent.py with perform()), never 'skills'.", "tags":["rapp"] },
+  { "id":"m3", "text":"Wants a public footprint via globally-accessible datasets on githubrawuserdata.", "tags":["goal"] },
+  { "id":"m4", "text":"Loves verify-before-exec and content-addressed everything.", "tags":["security"] }
+] }

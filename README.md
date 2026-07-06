@@ -40,7 +40,15 @@ Point any MCP host (Claude Desktop, Copilot CLI, Cursor…) at it:
 | [`template/`](template/) | the starter you copy for a new use case |
 | [`examples/unit-convert/`](examples/unit-convert/) | worked example — pure compute (length/mass/temp) |
 | [`examples/text-tools/`](examples/text-tools/) | worked example — slugify / wordcount / sha256 |
+| [`examples/brainstem/`](examples/brainstem/) | **a browser-tab MCP** — Pyodide runs raw-hosted **Python** agents with verify-before-exec; clients connect over WebRTC via a **QR code** |
 | [`SKILL.md`](SKILL.md) · [`AGENTS.md`](AGENTS.md) | drop-in skill + agent write-path |
+
+## Runtimes
+A `rapp-static-mcp` catalog can be served by:
+- **stdio shim** (`shim.mjs`) — for Claude Desktop / Copilot CLI / Cursor (the `unit-convert` & `text-tools` examples).
+- **a browser tab** ([`examples/brainstem/host.html`](examples/brainstem/host.html)) — boots Pyodide, pulls the
+  brainstem (agents/memory/twin) from GitHub raw, runs the **Python** agents in-tab with verify-before-exec, and
+  bridges MCP over **WebRTC**; a phone connects by **scanning a QR**. *While the tab is open, the MCP is open — no server.*
 
 ## Two kinds of cell
 - **Compute** — the tool computes its answer (deterministic, pure). See the examples.

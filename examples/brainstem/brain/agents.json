@@ -1,0 +1,5 @@
+{ "agents": [
+  { "file":"greeter.py",      "id":"greeter",      "name":"Greeter",      "when_to_use":"greet welcome or introduce someone", "entry":"perform" },
+  { "file":"meeting_cost.py", "id":"meeting-cost", "name":"Meeting Cost", "when_to_use":"estimate the cost or price of a meeting", "entry":"perform" },
+  { "file":"recall.py",       "id":"recall",       "name":"Recall",       "when_to_use":"remember recall or look up from memory", "entry":"perform" }
+] }

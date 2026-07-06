@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connect — Brainstem MCP client</title>
+<style>
+ body{margin:0;background:#0a0b12;color:#e7ecff;font:15px/1.5 system-ui,sans-serif;padding:20px;max-width:640px;margin:auto}
+ h1{font-size:20px} .muted{color:#8b93b8} a{color:#5fd0ff}
+ button{background:linear-gradient(90deg,#7CFFB2,#5fd0ff);color:#04120a;border:0;border-radius:9px;padding:9px 14px;font:inherit;font-weight:800;cursor:pointer}
+ input{background:#12131f;border:1px solid #242741;color:#e7ecff;border-radius:8px;padding:8px 10px;font:inherit;width:100%}
+ pre{background:#080910;border:1px solid #242741;border-radius:10px;padding:11px 13px;overflow:auto;font-size:12.5px;color:#bfe;white-space:pre-wrap}
+</style></head><body>
+<h1>🧠 Brainstem MCP — client</h1>
+<div class="muted" id="hdr">Reading connection from the QR…</div>
+<p><input id="msg" value="meeting cost for 4 people, 30 min at $90/h"></p>
+<p><button id="send">chat →</button> <button id="list">tools/list</button> <span class="muted" id="st">connecting…</span></p>
+<pre id="out">—</pre>
+<p class="muted">P2P over WebRTC (DTLS-encrypted). The token from the QR authorizes this session. No server sees your traffic.</p>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const h=new URLSearchParams(location.hash.slice(1));
+const PEER=h.get('peer'), TOKEN=h.get('token');
+$('#hdr').innerHTML = PEER ? `host peer <code>${PEER}</code>` : 'No peer in the URL — open this via the host QR.';
+let conn=null, rpcId=0; const waiters={};
+if(PEER){
+  const peer=new Peer();
+  peer.on('open', ()=>{ conn=peer.connect(PEER,{reliable:true});
+    conn.on('open', ()=>{ $('#st').textContent='🟢 connected'; call('initialize',{}); call('tools/list',{}); });
+    conn.on('data', m=>{ if(m&&m.id!=null&&waiters[m.id]){ waiters[m.id](m); delete waiters[m.id]; } });
+  });
+  peer.on('error', e=>$('#st').textContent='error: '+e.type);
+}
+function call(method, params){ return new Promise(res=>{ const id=++rpcId; waiters[id]=res;
+  conn.send({ token:TOKEN, rpc:{ jsonrpc:'2.0', id, method, params } }); }); }
+$('#list').onclick=async()=>{ const r=await call('tools/list',{}); $('#out').textContent=(r.result.tools||[]).map(t=>'• '+t.name+' — '+t.description).join('\n'); };
+$('#send').onclick=async()=>{ $('#out').textContent='…'; const r=await call('tools/call',{name:'chat',arguments:{message:$('#msg').value}});
+  $('#out').textContent = r.result?.content?.[0]?.text || JSON.stringify(r); };
+</script></body></html>
