@@ -1,0 +1,14 @@
+# rapp-static-mcp
+> Make an MCP server for any use case with no server. The repo IS the MCP: tools bind to content-addressed compute cells, verified (sha8) before execution. One generic transport shim runs; everything else is static.
+
+## Start
+- Spec: https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/SPEC.md
+- Skill (drop-in for agents): https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/SKILL.md
+- Transport: shim.mjs · Build: build.mjs · Scaffold: new-mcp.mjs · Template: template/
+
+## Examples (each a runnable MCP)
+- unit-convert — convert length/mass/temperature: https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json
+- text-tools — slugify / wordcount / sha256: https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json
+
+## Run any example
+{ "command": "node", "args": ["shim.mjs", "--catalog", "<that tools.json url>"] }

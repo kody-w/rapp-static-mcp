@@ -1,0 +1,21 @@
+{
+  "schema": "rapp-static-api/1.0",
+  "kind": "mcp-catalog",
+  "name": "my-static-mcp",
+  "description": "TODO: one line on what this MCP does and when to use it.",
+  "raw_base": "https://raw.githubusercontent.com/YOU/YOUR-REPO/main/examples/my-static-mcp",
+  "pages_base": "https://YOU.github.io/YOUR-REPO/examples/my-static-mcp/tools.json",
+  "tools": [
+    {
+      "name": "hello",
+      "description": "Say hello — proves the verify-before-exec round trip end to end.",
+      "cell": "hello",
+      "export": "hello",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "description": "Who to greet." } },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

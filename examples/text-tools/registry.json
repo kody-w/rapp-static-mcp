@@ -1,0 +1,39 @@
+{
+  "schema": "rapp-static-api/1.0",
+  "name": "text-tools",
+  "kind": "mcp-catalog",
+  "generated": "2026-07-06T18:43:21.184Z",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",
+  "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json",
+  "protocolVersion": "2025-06-18",
+  "summary": {
+    "tools": 3,
+    "cells": 1
+  },
+  "entries": [
+    {
+      "name": "slugify",
+      "description": "Turn text into a url-safe slug.",
+      "cell": "text",
+      "export": "slugify",
+      "sha8": "45515c9ad5f6",
+      "pin_path": "cells/versions/text.45515c9ad5f6.mjs"
+    },
+    {
+      "name": "wordcount",
+      "description": "Count characters, words, and lines.",
+      "cell": "text",
+      "export": "wordcount",
+      "sha8": "45515c9ad5f6",
+      "pin_path": "cells/versions/text.45515c9ad5f6.mjs"
+    },
+    {
+      "name": "sha256",
+      "description": "SHA-256 hash of text (hex).",
+      "cell": "text",
+      "export": "sha256",
+      "sha8": "45515c9ad5f6",
+      "pin_path": "cells/versions/text.45515c9ad5f6.mjs"
+    }
+  ]
+}

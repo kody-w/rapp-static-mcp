@@ -1,0 +1,14 @@
+# unit-convert
+> Convert length, mass, and temperature units. A pure-compute rapp-static-mcp — no data, no server.
+
+A **rapp-static-mcp/1.0** catalog — the repo IS the MCP. Each tool binds to a content-addressed compute
+cell; a host verifies the cell's sha8 before executing it (verify-before-exec). Only the transport shim runs.
+
+## Run it
+```json
+{ "command": "node", "args": ["shim.mjs", "--catalog", "https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json"] }
+```
+
+## Tools
+- `convert` — Convert a value between units (length/mass/temperature).
+- `units` — List every supported unit, grouped by dimension.

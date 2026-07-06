@@ -1,0 +1,16 @@
+{
+  "schema": "rapp-static-api/1.0",
+  "kind": "mcp-catalog",
+  "name": "text-tools",
+  "description": "Hash, slugify, count, and case-convert text. A pure-compute rapp-static-mcp.",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",
+  "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json",
+  "tools": [
+    { "name": "slugify", "description": "Turn text into a url-safe slug.", "cell": "text", "export": "slugify",
+      "inputSchema": { "type":"object", "properties": { "text": {"type":"string"} }, "required": ["text"] } },
+    { "name": "wordcount", "description": "Count characters, words, and lines.", "cell": "text", "export": "wordcount",
+      "inputSchema": { "type":"object", "properties": { "text": {"type":"string"} }, "required": ["text"] } },
+    { "name": "sha256", "description": "SHA-256 hash of text (hex).", "cell": "text", "export": "sha256",
+      "inputSchema": { "type":"object", "properties": { "text": {"type":"string"} }, "required": ["text"] } }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "schema": "rapp-static-mcp/1.0",
+  "name": "unit-convert",
+  "description": "Convert length, mass, and temperature units. A pure-compute rapp-static-mcp — no data, no server.",
+  "generated": "2026-07-06T18:43:21.074Z",
+  "protocolVersion": "2025-06-18",
+  "api_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",
+  "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json",
+  "summary": {
+    "tools": 2,
+    "cells": 1
+  },
+  "tools": [
+    {
+      "name": "convert",
+      "description": "Convert a value between units (length/mass/temperature).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "units",
+      "description": "List every supported unit, grouped by dimension.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "bindings": {
+    "convert": {
+      "cell": "convert",
+      "export": "convert",
+      "sha8": "9d26dae84e14",
+      "pin_path": "cells/versions/convert.9d26dae84e14.mjs",
+      "pin_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert/cells/versions/convert.9d26dae84e14.mjs"
+    },
+    "units": {
+      "cell": "convert",
+      "export": "units",
+      "sha8": "9d26dae84e14",
+      "pin_path": "cells/versions/convert.9d26dae84e14.mjs",
+      "pin_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert/cells/versions/convert.9d26dae84e14.mjs"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "rapp-static-api/1.0",
+  "name": "unit-convert",
+  "kind": "mcp-catalog",
+  "generated": "2026-07-06T18:43:21.074Z",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",
+  "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json",
+  "protocolVersion": "2025-06-18",
+  "summary": {
+    "tools": 2,
+    "cells": 1
+  },
+  "entries": [
+    {
+      "name": "convert",
+      "description": "Convert a value between units (length/mass/temperature).",
+      "cell": "convert",
+      "export": "convert",
+      "sha8": "9d26dae84e14",
+      "pin_path": "cells/versions/convert.9d26dae84e14.mjs"
+    },
+    {
+      "name": "units",
+      "description": "List every supported unit, grouped by dimension.",
+      "cell": "convert",
+      "export": "units",
+      "sha8": "9d26dae84e14",
+      "pin_path": "cells/versions/convert.9d26dae84e14.mjs"
+    }
+  ]
+}

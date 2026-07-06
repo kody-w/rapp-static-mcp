@@ -1,0 +1,19 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "rapp-static-mcp",
+  "name_for_model": "rapp_static_mcp",
+  "description_for_human": "Make an MCP server for any use case with no server — content-addressed, verify-before-exec.",
+  "description_for_model": "A spec + template for building static MCP servers. The repo is the catalog; tools bind to content-addressed compute cells verified by sha8 before execution. Read SPEC.md, scaffold with new-mcp.mjs, build with build.mjs, serve with the generic shim.mjs.",
+  "auth": { "type": "none" },
+  "api": {
+    "type": "spec",
+    "spec_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/SPEC.md",
+    "skill_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/SKILL.md",
+    "examples": [
+      "https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json",
+      "https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json"
+    ]
+  },
+  "legal_info_url": "https://github.com/kody-w/rapp-static-mcp",
+  "owner": "kody-w"
+}

@@ -1,0 +1,84 @@
+{
+  "schema": "rapp-static-mcp/1.0",
+  "name": "text-tools",
+  "description": "Hash, slugify, count, and case-convert text. A pure-compute rapp-static-mcp.",
+  "generated": "2026-07-06T18:43:21.184Z",
+  "protocolVersion": "2025-06-18",
+  "api_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools",
+  "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json",
+  "summary": {
+    "tools": 3,
+    "cells": 1
+  },
+  "tools": [
+    {
+      "name": "slugify",
+      "description": "Turn text into a url-safe slug.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "wordcount",
+      "description": "Count characters, words, and lines.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "sha256",
+      "description": "SHA-256 hash of text (hex).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    }
+  ],
+  "bindings": {
+    "slugify": {
+      "cell": "text",
+      "export": "slugify",
+      "sha8": "45515c9ad5f6",
+      "pin_path": "cells/versions/text.45515c9ad5f6.mjs",
+      "pin_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools/cells/versions/text.45515c9ad5f6.mjs"
+    },
+    "wordcount": {
+      "cell": "text",
+      "export": "wordcount",
+      "sha8": "45515c9ad5f6",
+      "pin_path": "cells/versions/text.45515c9ad5f6.mjs",
+      "pin_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools/cells/versions/text.45515c9ad5f6.mjs"
+    },
+    "sha256": {
+      "cell": "text",
+      "export": "sha256",
+      "sha8": "45515c9ad5f6",
+      "pin_path": "cells/versions/text.45515c9ad5f6.mjs",
+      "pin_url": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/text-tools/cells/versions/text.45515c9ad5f6.mjs"
+    }
+  }
+}

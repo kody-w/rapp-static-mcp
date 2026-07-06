@@ -1,0 +1,17 @@
+{
+  "schema": "rapp-static-api/1.0",
+  "kind": "mcp-catalog",
+  "name": "unit-convert",
+  "description": "Convert length, mass, and temperature units. A pure-compute rapp-static-mcp — no data, no server.",
+  "raw_base": "https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/unit-convert",
+  "pages_base": "https://kody-w.github.io/rapp-static-mcp/examples/unit-convert/tools.json",
+  "tools": [
+    { "name": "convert", "description": "Convert a value between units (length/mass/temperature).",
+      "cell": "convert", "export": "convert",
+      "inputSchema": { "type": "object",
+        "properties": { "value": {"type":"number"}, "from": {"type":"string"}, "to": {"type":"string"} },
+        "required": ["value","from","to"], "additionalProperties": false } },
+    { "name": "units", "description": "List every supported unit, grouped by dimension.",
+      "cell": "convert", "export": "units", "inputSchema": { "type":"object", "properties": {} } }
+  ]
+}

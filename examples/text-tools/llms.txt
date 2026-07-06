@@ -1,0 +1,15 @@
+# text-tools
+> Hash, slugify, count, and case-convert text. A pure-compute rapp-static-mcp.
+
+A **rapp-static-mcp/1.0** catalog — the repo IS the MCP. Each tool binds to a content-addressed compute
+cell; a host verifies the cell's sha8 before executing it (verify-before-exec). Only the transport shim runs.
+
+## Run it
+```json
+{ "command": "node", "args": ["shim.mjs", "--catalog", "https://kody-w.github.io/rapp-static-mcp/examples/text-tools/tools.json"] }
+```
+
+## Tools
+- `slugify` — Turn text into a url-safe slug.
+- `wordcount` — Count characters, words, and lines.
+- `sha256` — SHA-256 hash of text (hex).
