@@ -67,110 +67,37 @@
 
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script>
+<script type="module">
+import { createBrainstem, newRoomId, lendBrainstem } from './brainstem.mjs';
 const $=s=>document.querySelector(s);
 const BASE = new URL('.', location.href).href;                 // brainstem is served next to this page
 const TOKEN = Math.random().toString(36).slice(2,10);
-const RELAYS = ['wss://relay.damus.io','wss://nos.lol','wss://relay.primal.net','wss://relay.nostr.net','wss://nostr.wine']; // curated known-good Nostr relays for serverless WebRTC signaling
-let pyodide=null, REG=null, MEM=null, TWIN=null;
+let brain=null, mcp=null;
 const S={}; // status flags
 function status(){ $('#status').innerHTML =
   [['pyodide',S.py],['brainstem',S.brain],['mcp',S.mcp],['webrtc',S.rtc]]
   .map(([k,v])=>`<span class="pill ${v||'wait'}">${k}: ${v==='on'?'ready':v==='err'?'error':'…'}</span>`).join(''); }
 
-async function sha8(buf){ const h=await crypto.subtle.digest('SHA-256', buf);
-  return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,12); }
-
-async function loadBrain(){
-  REG = await (await fetch(BASE+'brain/registry.json')).json();
-  MEM = await (await fetch(BASE+'brain/memory.json')).json();
-  TWIN= await (await fetch(BASE+'brain/twin.json')).json();
-  S.brain='on'; status();
+function paintBrain(){
+  const REG = brain.registry;
   $('#regmeta').textContent = `· ${REG.count} agents · runtime ${REG.runtime}`;
   $('#agents').innerHTML = REG.agents.map(a=>`<div class="a"><code>${a.id}</code><span class="muted">${a.when_to_use}</span><span class="muted" style="margin-left:auto">sha8 ${a.sha8}</span></div>`).join('');
   $('#agentSel').innerHTML = REG.agents.map(a=>`<option value="${a.id}">${a.id}</option>`).join('');
 }
 
-// verify-before-exec: fetch the pinned agent, hash it, refuse if it drifts, then run it in Pyodide
-async function runAgent(id, input){
-  const a = REG.agents.find(x=>x.id===id); if(!a) throw new Error('unknown agent: '+id);
-  const buf = new Uint8Array(await (await fetch(BASE+a.module_path)).arrayBuffer());
-  const got = await sha8(buf);
-  if(got !== a.sha8) throw new Error(`verify-before-exec FAILED for ${id}: ${got} != pinned ${a.sha8}`);
-  const code = new TextDecoder().decode(buf);
-  return await runIsolated(code, a.entry, input, a.sha8, id);
-}
-async function runIsolated(code, entry, input, sha, id){
-  pyodide.globals.set('_in_json', JSON.stringify(input||{}));
-  pyodide.runPython(`
-import json as _json
-_ns = {}
-exec(${JSON.stringify(code)}, _ns)
-_res = _json.dumps(_ns[${JSON.stringify(entry)}](_json.loads(_in_json)))
-`);
-  const out = JSON.parse(pyodide.globals.get('_res'));
-  return { via:id, verified_sha8:sha, result: out };
-}
-
-function route(message){
-  const m=(message||'').toLowerCase();
-  let best=null, score=0;
-  for(const a of REG.agents){ const kws=a.when_to_use.split(/\s+/); const s=kws.filter(k=>k.length>3&&m.includes(k)).length; if(s>score){score=s;best=a;} }
-  return score>0?best:null;
-}
-
-async function callTool(name, args){
-  if(name==='list_agents') return { agents: REG.agents.map(a=>({id:a.id,name:a.name,when_to_use:a.when_to_use,sha8:a.sha8})) };
-  if(name==='run_agent')  return await runAgent(args.agent, args.input||{});
-  if(name==='recall'){ const q=String(args.query||'').toLowerCase();
-    return { query:q, hits:(MEM.memories||[]).filter(x=>JSON.stringify(x).toLowerCase().includes(q)) }; }
-  if(name==='ask_twin'){ const mem=(MEM.memories||[])[Math.floor(Math.random()*(MEM.memories||[]).length)]||{};
-    return { persona:TWIN.name, reply:`(${TWIN.voice}) ${args.question} — ${TWIN.principles.join(', ')}. I recall: ${mem.text||''}` }; }
-  if(name==='chat'){ const a=route(args.message);
-    if(a){ const r=await runAgent(a.id, {message:args.message, memory:MEM.memories}); return { route:a.id, ...r }; }
-    return { route:'twin', ...(await callTool('ask_twin',{question:args.message})) }; }
-  throw new Error('unknown tool: '+name);
-}
-const TOOLS=[
- {name:'list_agents',description:'List the brainstem agents (from the static RAR).',inputSchema:{type:'object',properties:{}}},
- {name:'run_agent',description:'Run one agent by id (verify-before-exec). args: {agent, input}.',inputSchema:{type:'object',properties:{agent:{type:'string'},input:{type:'object'}},required:['agent']}},
- {name:'chat',description:'Single entrypoint: routes your message to the best agent (or the twin).',inputSchema:{type:'object',properties:{message:{type:'string'}},required:['message']}},
- {name:'recall',description:'Search brainstem memory.',inputSchema:{type:'object',properties:{query:{type:'string'}},required:['query']}},
- {name:'ask_twin',description:'Ask the twin persona.',inputSchema:{type:'object',properties:{question:{type:'string'}},required:['question']}},
-];
-async function mcp(req){
-  const {id,method,params}=req;
-  try{
-    if(method==='initialize') return {jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'static-brainstem',version:'1.0'}}};
-    if(method==='ping') return {jsonrpc:'2.0',id,result:{}};
-    if(method==='tools/list') return {jsonrpc:'2.0',id,result:{tools:TOOLS}};
-    if(method==='tools/call'){ const out=await callTool(params.name, params.arguments||{});
-      return {jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(out,null,2)}], _meta:{verified_sha8:out.verified_sha8}}}; }
-    return {jsonrpc:'2.0',id,error:{code:-32601,message:'method not found'}};
-  }catch(e){ return {jsonrpc:'2.0',id,result:{content:[{type:'text',text:String(e.message||e)}],isError:true}}; }
-}
-window.__mcp = mcp;   // exposed for headless verification
-
-// ── WebRTC bridge (Trystero over public Nostr relays — serverless) + QR ─────
-// We choose the room id ourselves, so the QR renders INSTANTLY, independent of any signaling server.
+// ── Lend this tab's brainstem over a secure QR channel (serverless P2P) ─────
 async function startPeer(){
-  const roomId = 'brn-' + Math.random().toString(36).slice(2,10);
+  const roomId = newRoomId();
   const connectUrl = BASE+'connect.html#room='+roomId+'&token='+TOKEN;
   $('#peerid').textContent = roomId; $('#token').textContent = TOKEN;
   $('#qr').innerHTML=''; try{ new QRCode($('#qr'), { text:connectUrl, width:180, height:180 }); }catch(e){ $('#qr').textContent=connectUrl; }
   S.rtc='wait'; status(); $('#peers').innerHTML = '<a href="'+connectUrl+'" target="_blank" style="color:#5fd0ff">open client link ↗</a>';
   try{
-    const { joinRoom } = await import('https://esm.sh/trystero@0.21.5/nostr');
-    const room = joinRoom({ appId: 'rapp-brainstem-mcp', relayUrls: RELAYS, relayRedundancy: 4 }, roomId);
-    const [sendRes, getReq] = room.makeAction('mcp');
-    getReq(async (msg, peerId) => {
-      if(!msg || msg.token !== TOKEN){ sendRes({ jsonrpc:'2.0', id: msg&&msg.rpc&&msg.rpc.id, error:{code:-32000,message:'bad token'} }, peerId); return; }
-      sendRes(await mcp(msg.rpc), peerId);
-    });
-    room.onPeerJoin(id => { $('#peers').innerHTML = '🟢 client connected: <code>'+id.slice(0,8)+'</code>'; });
-    room.onPeerLeave(id => { $('#peers').textContent = 'client left'; });
-    S.rtc='on'; status();
-    window.__room = room;
+    const room = await lendBrainstem({ roomId, mcp, token:TOKEN, on:{
+      join:  id => { $('#peers').innerHTML = '🟢 borrower connected: <code>'+id.slice(0,8)+'</code>'; },
+      leave: () => { $('#peers').textContent = 'borrower left'; },
+    }});
+    S.rtc='on'; status(); window.__room = room;
   }catch(e){ S.rtc='err'; status(); $('#peers').innerHTML += ' <span class="muted">(signaling import failed; QR link still works once reachable)</span>'; }
 }
 
@@ -182,14 +109,15 @@ $('#bChat').onclick=async()=>{ const r=await mcp({jsonrpc:'2.0',id:3,method:'too
 // ── boot ──
 (async ()=>{
   status();
+  let pyodide;
   try{ pyodide = await loadPyodide(); S.py='on'; status(); }
   catch(e){ S.py='err'; status(); $('#out').textContent='Pyodide failed: '+e; return; }
-  try{ await loadBrain(); }catch(e){ S.brain='err'; status(); $('#out').textContent='brain load failed: '+e; return; }
+  try{ brain = await createBrainstem({ base:BASE, pyodide }); mcp = brain.mcp; window.__mcp = mcp; S.brain='on'; status(); paintBrain(); }
+  catch(e){ S.brain='err'; status(); $('#out').textContent='brain load failed: '+e; return; }
   S.mcp='on'; status();
-  // self-test: run a Python agent through verify-before-exec
   try{
     const t = await mcp({jsonrpc:'2.0',id:99,method:'tools/call',params:{name:'run_agent',arguments:{agent:'greeter',input:{name:'world'}}}});
-    window.__selftest = { ok: !t.result.isError && t.result._meta.verified_sha8===REG.agents.find(a=>a.id==='greeter').sha8, meta:t.result._meta, text:t.result.content[0].text };
+    window.__selftest = { ok: !t.result.isError && t.result._meta.verified_sha8===brain.registry.agents.find(a=>a.id==='greeter').sha8, meta:t.result._meta, text:t.result.content[0].text };
     $('#out').textContent = 'MCP live in this tab ✓\n\nself-test run_agent(greeter):\n'+t.result.content[0].text+'\nverified_sha8: '+t.result._meta.verified_sha8;
   }catch(e){ window.__selftest={ok:false,err:String(e)}; }
   startPeer();

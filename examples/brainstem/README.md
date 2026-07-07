@@ -27,6 +27,18 @@
    (Pyodide loads in a few seconds; you'll see `pyodide/brainstem/mcp: ready`.)
 2. Use the in-tab console (chat / run_agent) — or **scan the QR** with a phone to drive it from another device.
 
+## Demos
+- **The Brainstem Borrower** — **[demos/brainstem-borrower.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/brainstem-borrower.html)**
+  Your machine does the thinking; a stranger **borrows the answer** through a secure channel handed to
+  them by a QR. Open it, keep the tab open, and watch the **live borrow log** + **no-server ledger** as
+  someone scans and runs your `meeting_cost` agent. The borrower lands on
+  [demos/borrow.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/borrow.html) —
+  a big verified number computed on *your* machine, over an encrypted P2P channel, with no server.
+
+The runtime is welded into a reusable module, **`brainstem.mjs`** (`createBrainstem` = verify-before-exec
++ MCP; `lendBrainstem` / `borrowBrainstem` = the serverless P2P host/client). `host.html`, `connect.html`,
+and both demos are thin UIs over it.
+
 ## Add an agent (RAPP style)
 1. Drop a single-file Python agent in `brain/agents/<id>.py` exporting `META` + `def perform(input): ...`.
 2. Add it to `brain/agents.json`.
@@ -39,7 +51,7 @@
 - **Access:** the QR carries a fresh per-session token; the host rejects RPCs without it.
 - **Confidentiality:** the WebRTC data channel is DTLS-encrypted and peer-to-peer.
 - **Signaling** uses public Nostr relays via Trystero (for peer discovery + NAT traversal only — no payload passes through them). The host self-assigns the room id, so the QR renders instantly regardless of relay status.
-  Swap in your own PeerServer for a fully self-owned path.
+  Swap in your own relay list (`DEFAULT_RELAYS` in `brainstem.mjs`) for a fully self-owned path.
 
 _A `rapp-static-mcp/1.0` MCP whose runtime is a browser tab. Welds Pyodide + Trystero + the RAR onto the
 static-MCP pattern._

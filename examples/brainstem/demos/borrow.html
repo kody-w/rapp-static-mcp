@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You're borrowing a brainstem — meeting cost (no server)</title>
+<meta name="description" content="You scanned a QR and borrowed compute from someone else's browser tab. The answer is computed on their machine with verify-before-exec and returned over an encrypted P2P channel. No server touched it.">
+<style>
+ :root{--bg:#0b0d18;--panel:#161a2e;--bg2:#0f1224;--line:#2a2f4d;--txt:#eef2ff;--dim:#9aa3c7;--neon:#7CFFB2;--cy:#5fd0ff;--gold:#ffcf3f;--bad:#ff6ad5}
+ *{box-sizing:border-box} body{margin:0;background:radial-gradient(900px 600px at 50% -10%,#1a2140 0,var(--bg) 60%);color:var(--txt);font:15px/1.55 system-ui,-apple-system,sans-serif;min-height:100vh}
+ .wrap{max-width:560px;margin:auto;padding:26px 20px 60px} a{color:var(--cy)} code{font-family:ui-monospace,monospace;color:var(--gold)}
+ .tag{letter-spacing:3px;font-size:11px;color:var(--neon);font-weight:800}
+ h1{font-size:26px;margin:8px 0 4px;font-weight:850} h1 .g{background:linear-gradient(90deg,var(--gold),var(--cy));-webkit-background-clip:text;background-clip:text;color:transparent}
+ .sub{color:var(--dim);font-size:14px}
+ .panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:18px 18px;margin-top:16px}
+ .st{display:inline-block;font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);color:var(--dim);background:#0c0e1c}
+ .st.on{border-color:var(--neon);color:var(--neon)} .st.err{border-color:var(--bad);color:var(--bad)}
+ label{display:block;font-size:12px;color:var(--dim);margin:0 0 5px;letter-spacing:.3px;text-transform:uppercase}
+ .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+ input{width:100%;background:#0c0e1c;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:11px 12px;font:inherit;font-size:18px;font-weight:700;text-align:center}
+ button{width:100%;margin-top:14px;background:linear-gradient(90deg,var(--neon),var(--cy));color:#04120a;border:0;border-radius:12px;padding:13px;font:inherit;font-size:16px;font-weight:850;cursor:pointer}
+ button:disabled{filter:grayscale(.6) brightness(.7);cursor:progress}
+ .answer{text-align:center;padding:8px 0 2px} .answer .n{font-size:52px;font-weight:850;line-height:1;background:linear-gradient(90deg,var(--gold),var(--cy));-webkit-background-clip:text;background-clip:text;color:transparent}
+ .answer .f{color:var(--dim);margin-top:8px;font-size:14px}
+ .proof{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;font-size:12.5px;color:var(--dim)}
+ .proof b{color:var(--neon)} .proof code{font-size:12px}
+ .mini{margin-top:10px} .mini input{font-size:14px;font-weight:500;text-align:left}
+ .muted{color:var(--dim)}
+</style></head><body>
+<div class="wrap">
+ <div class="tag">◆ YOU ARE BORROWING A BRAINSTEM</div>
+ <h1>Meeting cost, <span class="g">computed on someone else's machine</span></h1>
+ <div class="sub">You scanned a QR. There is <b>no server</b> — you're borrowing compute from a browser tab
+  that may be thousands of miles away, over an encrypted P2P channel. <span class="st" id="st">connecting…</span></div>
+
+ <div class="panel">
+  <div class="grid">
+   <div><label>People</label><input id="people" type="number" min="1" value="6"></div>
+   <div><label>Minutes</label><input id="minutes" type="number" min="1" value="45"></div>
+   <div><label>$ / hour</label><input id="rate" type="number" min="1" value="120"></div>
+  </div>
+  <button id="go" disabled>Borrow the answer →</button>
+
+  <div id="result" style="display:none">
+   <div class="answer"><div class="n" id="cost">$—</div><div class="f" id="formula"></div></div>
+   <div class="proof">
+    ✓ <b>verified-before-exec</b> — the lender SHA-256'd the pinned Python agent before running it.<br>
+    agent <code id="pAgent">—</code> · verified_sha8 <code id="pSha">—</code> · lender peer <code id="pPeer">—</code><br>
+    <span class="muted">No server saw this. The number crossed a DTLS-encrypted WebRTC channel signaled over public Nostr relays.</span>
+   </div>
+  </div>
+ </div>
+
+ <div class="panel mini">
+  <label>…or ask the borrowed brainstem anything</label>
+  <input id="msg" placeholder="e.g. welcome Ada to the team" value="welcome Ada to the team">
+  <button id="ask" disabled>Ask →</button>
+  <pre id="out" class="muted" style="white-space:pre-wrap;font-size:12.5px;margin:10px 0 0"></pre>
+ </div>
+
+ <p class="muted" style="font-size:12px;margin-top:16px">rapp-static-mcp/1.0 · the lender's tab is the whole server · <a href="brainstem-borrower.html">lend your own ↗</a></p>
+</div>
+<script type="module">
+import { borrowBrainstem } from '../brainstem.mjs';
+const $=s=>document.querySelector(s);
+const h=new URLSearchParams(location.hash.slice(1));
+const ROOM=h.get('room'), TOKEN=h.get('token');
+let call=null;
+function setSt(t,cls){ const el=$('#st'); el.textContent=t; el.className='st'+(cls?' '+cls:''); }
+
+if(!ROOM){ setSt('no channel — open via the QR','err'); }
+else{
+  try{
+    const conn = await borrowBrainstem({ roomId:ROOM, token:TOKEN, on:{
+      join: (id)=>{ setSt('🟢 borrowing — channel live','on'); $('#go').disabled=false; $('#ask').disabled=false; if(id) $('#pPeer').textContent=id.slice(0,8); }
+    }});
+    call = conn.call;
+    // if the lender is already present, enable shortly regardless
+    setTimeout(()=>{ if($('#go').disabled){ $('#go').disabled=false; $('#ask').disabled=false; setSt('channel open','on'); } }, 4000);
+  }catch(e){ setSt('signaling failed: '+(e.message||e),'err'); }
+}
+
+$('#go').onclick=async()=>{
+  const b=$('#go'); b.disabled=true; b.textContent='borrowing…';
+  try{
+    const r = await call('tools/call',{name:'run_agent',arguments:{agent:'meeting-cost',
+      input:{people:+$('#people').value, minutes:+$('#minutes').value, rate:+$('#rate').value}}});
+    const data = JSON.parse(r.result.content[0].text);
+    const res = data.result;
+    $('#cost').textContent = '$'+Number(res.cost).toFixed(2);
+    $('#formula').textContent = res.text;
+    $('#pAgent').textContent = data.via;
+    $('#pSha').textContent = data.verified_sha8 || (r.result._meta&&r.result._meta.verified_sha8) || '—';
+    $('#result').style.display='block';
+  }catch(e){ $('#formula').textContent=''; $('#cost').textContent='—'; $('#result').style.display='block'; $('#formula').textContent='error: '+(e.message||e); }
+  b.disabled=false; b.textContent='Borrow the answer →';
+};
+$('#ask').onclick=async()=>{
+  const b=$('#ask'); b.disabled=true; $('#out').textContent='…';
+  try{ const r=await call('tools/call',{name:'chat',arguments:{message:$('#msg').value}});
+    $('#out').textContent = r.result?.content?.[0]?.text || JSON.stringify(r); }
+  catch(e){ $('#out').textContent=String(e.message||e); }
+  b.disabled=false;
+};
+</script></body></html>

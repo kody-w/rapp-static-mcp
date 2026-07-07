@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Connect — Brainstem MCP client</title>
+<title>Borrow this brainstem — MCP client</title>
 <style>
  body{margin:0;background:#0a0b12;color:#e7ecff;font:15px/1.5 system-ui,sans-serif;padding:20px;max-width:640px;margin:auto}
  h1{font-size:20px} .muted{color:#8b93b8} a{color:#5fd0ff} code{font-family:ui-monospace,monospace;color:#ffcf3f}
@@ -10,30 +10,26 @@
  input{background:#12131f;border:1px solid #242741;color:#e7ecff;border-radius:8px;padding:9px 11px;font:inherit;width:100%}
  pre{background:#080910;border:1px solid #242741;border-radius:10px;padding:11px 13px;overflow:auto;font-size:12.5px;color:#bfe;white-space:pre-wrap;min-height:60px}
 </style></head><body>
-<h1>🧠 Brainstem MCP — client</h1>
-<div class="muted" id="hdr">Reading connection from the QR…</div>
+<h1>🧠 Borrow this brainstem — client</h1>
+<div class="muted" id="hdr">Reading the secure channel from the QR…</div>
 <p><input id="msg" value="meeting cost for 4 people, 30 min at $90/h"></p>
 <p><button id="send">chat →</button> <button id="list" class="g">tools/list</button> <span class="muted" id="st">connecting…</span></p>
 <pre id="out">—</pre>
-<p class="muted" style="font-size:12px">P2P over WebRTC (Trystero/Nostr signaling). The token from the QR authorizes this session; the data channel is DTLS-encrypted — no server sees your traffic.</p>
+<p class="muted" style="font-size:12px">You are borrowing compute from someone else's browser tab over WebRTC (Trystero/Nostr signaling). The token from the QR authorizes this session; the data channel is DTLS-encrypted — no server sees your traffic.</p>
 <script type="module">
+import { borrowBrainstem } from './brainstem.mjs';
 const $=s=>document.querySelector(s);
 const h=new URLSearchParams(location.hash.slice(1));
 const ROOM=h.get('room'), TOKEN=h.get('token');
-$('#hdr').innerHTML = ROOM ? `host room <code>${ROOM}</code>` : 'No room in the URL — open this via the host QR.';
-let sendReq=null, rpcId=0; const waiters={};
-function call(method, params){ return new Promise((res,rej)=>{ if(!sendReq) return rej(new Error('not connected'));
-  const id=++rpcId; waiters[id]=res; sendReq({ token:TOKEN, rpc:{ jsonrpc:'2.0', id, method, params } });
-  setTimeout(()=>{ if(waiters[id]){ delete waiters[id]; rej(new Error('timeout')); } }, 15000); }); }
+$('#hdr').innerHTML = ROOM ? `secure channel <code>${ROOM}</code>` : 'No channel in the URL — open this via the lender QR.';
+let call=null;
 if(ROOM){
   try{
-    const RELAYS=['wss://relay.damus.io','wss://nos.lol','wss://relay.primal.net','wss://relay.nostr.net','wss://nostr.wine'];
-    const { joinRoom } = await import('https://esm.sh/trystero@0.21.5/nostr');
-    const room = joinRoom({ appId:'rapp-brainstem-mcp', relayUrls:RELAYS, relayRedundancy:4 }, ROOM);
-    const [snd, get] = room.makeAction('mcp'); sendReq=snd;
-    get(m => { if(m && m.id!=null && waiters[m.id]){ waiters[m.id](m); delete waiters[m.id]; } });
-    room.onPeerJoin(async ()=>{ $('#st').textContent='🟢 connected';
-      try{ await call('initialize',{}); const t=await call('tools/list',{}); $('#out').textContent='tools: '+(t.result.tools||[]).map(x=>x.name).join(', '); }catch(e){} });
+    const conn = await borrowBrainstem({ roomId:ROOM, token:TOKEN, on:{
+      join: async ()=>{ $('#st').textContent='🟢 connected';
+        try{ await call('initialize',{}); const t=await call('tools/list',{}); $('#out').textContent='tools: '+(t.result.tools||[]).map(x=>x.name).join(', '); }catch(e){} }
+    }});
+    call = conn.call;
   }catch(e){ $('#st').textContent='signaling failed: '+(e.message||e); }
 }
 $('#list').onclick=async()=>{ try{ const r=await call('tools/list',{}); $('#out').textContent=(r.result.tools||[]).map(t=>'• '+t.name+' — '+t.description).join('\n'); }catch(e){ $('#out').textContent=String(e.message||e); } };
