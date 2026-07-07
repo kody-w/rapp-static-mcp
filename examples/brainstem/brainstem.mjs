@@ -87,6 +87,60 @@ _res = _json.dumps(_ns[${JSON.stringify(a.entry)}](_json.loads(_in_json)))
   return { registry:REG, memory:MEM, twin:TWIN, runAgent, route, callTool, TOOLS, mcp };
 }
 
+// ── LIVE brainstem (Tier 1) ─────────────────────────────────────────────────
+// Wrap a running local brainstem.py (Flask on :7071) as an MCP. This is the peer of
+// createBrainstem: instead of Pyodide + a static RAR, tools proxy to the live server's
+// HTTP API (real loaded agents, real GitHub-Copilot auth, real tool-calling loop).
+// The kernel is never touched — we only call its documented endpoints.
+export function createLiveBrainstem({ base = 'http://localhost:7071' } = {}){
+  base = base.replace(/\/+$/,'');
+  const jget  = (p)      => fetch(base+p).then(r=>r.json());
+  const jpost = (p, body)=> fetch(base+p, { method:'POST', headers: body?{'Content-Type':'application/json'}:undefined, body: body?JSON.stringify(body):undefined }).then(r=>r.json());
+
+  const health      = ()               => jget('/health');
+  const loginStatus = ()               => jget('/login/status');
+  const startLogin  = ()               => jpost('/login');
+  const pollLogin   = ()               => jpost('/login/poll');
+  const listAgents  = async ()         => (await jget('/agents')).files || [];
+  const exportUrl   = (filename)       => base+'/agents/export/'+encodeURIComponent(filename);
+  const chat        = (message, history, session_id) =>
+    jpost('/chat', { user_input:message, conversation_history:history||[], session_id });
+  async function importAgent(file){
+    const fd = new FormData(); fd.append('file', file, file.name);
+    return fetch(base+'/agents/import', { method:'POST', body:fd }).then(r=>r.json());
+  }
+
+  const TOOLS = [
+    { name:'chat', description:'Chat with the lent brainstem — routes through its loaded agents + GitHub Copilot (the real /chat tool-calling loop).', inputSchema:{type:'object',properties:{message:{type:'string'},history:{type:'array'},session_id:{type:'string'}},required:['message']} },
+    { name:'list_agents', description:'List the brainstem\u2019s loaded agents (file + class names).', inputSchema:{type:'object',properties:{}} },
+    { name:'health', description:'Brainstem status: version, active model, loaded agents, auth state.', inputSchema:{type:'object',properties:{}} },
+  ];
+
+  async function mcp(req){
+    const { id, method, params } = req;
+    try{
+      if(method==='initialize'){ const h=await health().catch(()=>({}));
+        return { jsonrpc:'2.0', id, result:{ protocolVersion:'2025-06-18', capabilities:{tools:{}}, serverInfo:{ name:'rapp-brainstem', version:h.version||'?', model:h.model } } }; }
+      if(method==='ping') return { jsonrpc:'2.0', id, result:{} };
+      if(method==='tools/list') return { jsonrpc:'2.0', id, result:{ tools:TOOLS } };
+      if(method==='tools/call'){
+        const n = params.name, a = params.arguments||{};
+        if(n==='chat'){ const r = await chat(a.message, a.history, a.session_id);
+          const text = (r.response!=null ? r.response : (r.error!=null ? '⚠ '+r.error : JSON.stringify(r)));
+          return { jsonrpc:'2.0', id, result:{ content:[{type:'text',text}], _meta:{ model:r.model, agent_logs:r.agent_logs, session_id:r.session_id, error:r.error } } }; }
+        if(n==='list_agents'){ const files = await listAgents();
+          return { jsonrpc:'2.0', id, result:{ content:[{type:'text',text:JSON.stringify(files,null,2)}], _meta:{ agents:files } } }; }
+        if(n==='health'){ const h = await health();
+          return { jsonrpc:'2.0', id, result:{ content:[{type:'text',text:JSON.stringify(h,null,2)}], _meta:h } }; }
+        return { jsonrpc:'2.0', id, error:{ code:-32601, message:'unknown tool: '+n } };
+      }
+      return { jsonrpc:'2.0', id, error:{ code:-32601, message:'method not found' } };
+    }catch(e){ return { jsonrpc:'2.0', id, result:{ content:[{type:'text',text:'brainstem unreachable: '+(e.message||e)}], isError:true } }; }
+  }
+
+  return { base, health, loginStatus, startLogin, pollLogin, listAgents, exportUrl, importAgent, chat, TOOLS, mcp };
+}
+
 // A secure channel id. We pick it ourselves, so the QR renders instantly — the relay is only
 // needed once a borrower actually scans and joins.
 export function newRoomId(){ return 'brn-'+Math.random().toString(36).slice(2,10); }

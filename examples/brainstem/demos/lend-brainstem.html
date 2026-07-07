@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lend your live brainstem — an MCP'ed brainstem.py you lend over a QR</title>
+<meta name="description" content="Turn your running brainstem.py (real loaded agents + GitHub Copilot auth) into a serverless MCP. Chat with it, hot-load agents by drag-and-drop, then lend it to others over a QR — while you supervise every borrowed call.">
+<style>
+ :root{--bg:#0b0d18;--bg2:#0f1224;--panel:#161a2e;--panel2:#1b2038;--line:#2c3252;--txt:#eef2ff;--dim:#9aa6cc;--neon:#7CFFB2;--cy:#5fd0ff;--gold:#ffcf3f;--bad:#ff6ad5;--violet:#b78cff}
+ *{box-sizing:border-box} html,body{margin:0}
+ body{background:radial-gradient(1200px 700px at 85% -10%,#1a2140 0,var(--bg) 60%);color:var(--txt);font:14.5px/1.5 system-ui,-apple-system,sans-serif;min-height:100vh}
+ a{color:var(--cy)} code{font-family:ui-monospace,SFMono-Regular,monospace}
+ header{padding:24px 24px 6px;max-width:1320px;margin:auto}
+ .tag{letter-spacing:3px;font-size:11px;color:var(--neon);font-weight:800}
+ h1{margin:8px 0 4px;font-size:29px;line-height:1.05;font-weight:850}
+ h1 .g{background:linear-gradient(90deg,var(--gold),var(--cy) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+ .lede{color:var(--dim);max-width:840px} .lede b{color:var(--txt)}
+ /* connection bar */
+ .bar{max-width:1320px;margin:14px auto 0;padding:0 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+ .bar input{background:#0c0e1c;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit;min-width:230px}
+ .pill{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid var(--line);background:#0c0e1c;color:var(--dim)}
+ .pill.on{border-color:var(--neon);color:var(--neon)} .pill.wait{border-color:var(--gold);color:var(--gold)} .pill.err{border-color:var(--bad);color:var(--bad)}
+ button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 13px;font:inherit;font-weight:650;cursor:pointer}
+ button.p{background:linear-gradient(90deg,var(--neon),var(--cy));color:#04120a;font-weight:850;border:0}
+ button:disabled{opacity:.5;cursor:not-allowed}
+ main{display:grid;grid-template-columns:1.35fr .82fr .9fr;gap:16px;padding:16px 24px 56px;max-width:1320px;margin:auto}
+ @media(max-width:1040px){main{grid-template-columns:1fr}}
+ .panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:15px 16px;display:flex;flex-direction:column;min-height:0}
+ .panel h2{margin:0 0 8px;font-size:14px} .muted{color:var(--dim)} .sm{font-size:12.5px}
+ /* auth banner */
+ .auth{max-width:1320px;margin:12px auto 0;padding:0 24px}
+ .authbox{background:linear-gradient(180deg,#241a33,#181228);border:1px solid #4a2f6b;border-radius:14px;padding:14px 16px;display:none}
+ .authbox.show{display:block} .authbox.ok{background:linear-gradient(180deg,#12241a,#0f1a14);border-color:#2f6b45}
+ .code{font-family:ui-monospace,monospace;font-size:24px;font-weight:850;letter-spacing:3px;color:var(--gold);background:#0c0e1c;border:1px solid var(--line);border-radius:8px;padding:6px 12px;display:inline-block}
+ /* chat */
+ .chat{flex:1;min-height:340px;max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:9px;padding:4px 2px}
+ .msg{max-width:88%;padding:9px 12px;border-radius:12px;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+ .msg.u{align-self:flex-end;background:linear-gradient(90deg,#123,#0d2b3a);border:1px solid #1d4a5e}
+ .msg.a{align-self:flex-start;background:#12142a;border:1px solid var(--line)}
+ .msg .who{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+ .logs{align-self:flex-start;font-size:11.5px;color:var(--gold);font-family:ui-monospace,monospace;opacity:.9;padding-left:4px}
+ .cin{display:flex;gap:8px;margin-top:10px} .cin input{flex:1;background:#0c0e1c;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:11px 12px;font:inherit}
+ /* agents */
+ .agents{overflow:auto;max-height:34vh;margin:0;display:flex;flex-direction:column;gap:6px}
+ .arow{display:flex;gap:8px;align-items:center;background:#0c0e1c;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+ .arow b{font-size:13px} .arow .fn{color:var(--dim);font-size:11px;font-family:ui-monospace,monospace}
+ .arow a{margin-left:auto;font-size:11.5px;font-weight:700}
+ .drop{margin-top:10px;border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--dim);font-size:12.5px;transition:.15s}
+ .drop.hot{border-color:var(--neon);background:#0e2018;color:var(--neon)}
+ /* lend + supervise */
+ #qr{background:#fff;padding:12px;border-radius:14px;display:inline-block;min-height:180px;box-shadow:0 14px 40px -18px #5fd0ff55}
+ .qwrap{text-align:center}
+ .log{list-style:none;margin:8px 0 0;padding:0;overflow:auto;max-height:40vh;font-size:12.5px;flex:1}
+ .log li{display:flex;gap:8px;padding:7px 3px;border-bottom:1px solid #1b2036}
+ .log .t{color:var(--dim);font-family:ui-monospace,monospace;font-size:11px;flex:0 0 56px}
+ .log .m{flex:1} .log .m code{color:var(--gold)} .log .ok{color:var(--neon)} .log .join{color:var(--cy)} .log .warn{color:var(--gold)} .log .bad{color:var(--bad)}
+ .toast{position:fixed;right:18px;bottom:18px;background:#12142a;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;opacity:0;transform:translateY(8px);transition:.2s;z-index:9}
+ .toast.show{opacity:1;transform:none}
+ footer{max-width:1320px;margin:auto;padding:4px 24px 40px;color:var(--dim);font-size:12px}
+ .warn2{color:var(--gold)}
+</style>
+</head><body>
+<header>
+ <div class="tag">◆ RAPP · TIER 1 BRAINSTEM · LENT AS AN MCP</div>
+ <h1>Lend your <span class="g">live brainstem</span></h1>
+ <div class="lede">This tab wraps your running <b>brainstem.py</b> (real loaded agents + your GitHub-Copilot
+  auth) as a <b>serverless MCP</b>. Chat with it, hot-load agents by drag-and-drop, then <b>lend it over a
+  QR</b> so others can use <i>your</i> brainstem — while you <b>supervise every borrowed call</b>. No tunnel,
+  no deploy: the borrower reaches you peer-to-peer; only you touch <code>localhost</code>.</div>
+</header>
+
+<div class="bar">
+ <span class="muted sm">brainstem:</span>
+ <input id="url" value="http://localhost:7071" spellcheck="false">
+ <button id="connect" class="p">Connect</button>
+ <span class="pill" id="pConn">offline</span>
+ <span class="pill" id="pModel">model —</span>
+ <span class="pill" id="pAgents">agents —</span>
+ <span class="pill" id="pAuth">copilot —</span>
+</div>
+
+<div class="auth"><div class="authbox" id="authbox"></div></div>
+
+<main>
+ <!-- CHAT -->
+ <section class="panel">
+  <h2>💬 Chat <span class="muted sm">— the real /chat tool-calling loop</span></h2>
+  <div class="chat" id="chat"><div class="msg a"><div class="who">brainstem</div>Connect to your brainstem to start chatting. Borrowers will use this exact path.</div></div>
+  <div class="cin"><input id="msg" placeholder="Ask your brainstem…  (e.g. what's the top Hacker News story?)"><button id="send" class="p" disabled>Send</button></div>
+ </section>
+
+ <!-- AGENTS -->
+ <section class="panel">
+  <h2>🧩 Loaded agents <span class="muted sm" id="agentsN"></span></h2>
+  <div class="agents" id="agents"><div class="muted sm">connect to list agents…</div></div>
+  <div class="drop" id="drop">⬇ drag a <code>*_agent.py</code> here to <b>hot-load</b> it — or <a href="#" id="browse">browse</a><input type="file" id="file" accept=".py" multiple hidden></div>
+ </section>
+
+ <!-- LEND + SUPERVISE -->
+ <aside class="panel">
+  <h2>🔒 Lend over a QR</h2>
+  <div class="qwrap">
+   <div id="qr"></div>
+   <div class="sm muted" style="margin-top:8px">channel <code id="room">…</code> · token <code id="token">…</code></div>
+   <div class="sm" id="cta" style="margin-top:4px"></div>
+  </div>
+  <h2 style="margin-top:14px">📡 Supervise <span class="muted sm">— every borrowed call</span></h2>
+  <ul class="log" id="log"></ul>
+ </aside>
+</main>
+<footer>
+ <span class="warn2">⚠ Lending shares your brainstem:</span> borrowers consume your Copilot quota and can invoke your loaded agents. You see every call above; close this tab to revoke instantly.
+ · served on <code>https</code>? point at the TLS proxy (<code>?brainstem=https://localhost:7072</code>) to avoid mixed-content · <a href="brainstem-borrower.html">no-install static demo ↗</a> · <a href="https://github.com/kody-w/rapp-static-mcp">source</a>
+</footer>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script type="module">
+import { createLiveBrainstem, newRoomId, lendBrainstem } from '../brainstem.mjs';
+const $=s=>document.querySelector(s);
+const qs=new URLSearchParams(location.search);
+const BORROW = new URL('borrow-brainstem.html', location.href).href;
+const TOKEN = Math.random().toString(36).slice(2,10);
+let live=null, history=[], sessionId='lend-'+Math.random().toString(36).slice(2,8), lent=false, borrows=0;
+
+if(qs.get('brainstem')) $('#url').value = qs.get('brainstem');
+function now(){ return new Date().toLocaleTimeString([], {hour12:false}); }
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2600); }
+function log(cls, html){ const li=document.createElement('li'); li.innerHTML=`<span class="t">${now()}</span><span class="m ${cls||''}">${html}</span>`; $('#log').prepend(li); }
+function pill(id, cls, txt){ const el=$(id); el.className='pill'+(cls?' '+cls:''); el.textContent=txt; }
+
+function addMsg(who, text){ const d=document.createElement('div'); d.className='msg '+(who==='you'?'u':'a');
+  d.innerHTML=`<div class="who">${who}</div>`; d.appendChild(document.createTextNode(text)); $('#chat').appendChild(d); $('#chat').scrollTop=1e9; return d; }
+function addLogs(t){ if(!t) return; const d=document.createElement('div'); d.className='logs'; d.textContent='⚙ '+t.replace(/\s+/g,' ').slice(0,240); $('#chat').appendChild(d); $('#chat').scrollTop=1e9; }
+
+// ── connect + health ──
+async function refreshHealth(){
+  try{ const h=await live.health(); window.__health=h;
+    pill('#pConn','on','connected'); pill('#pModel', h.model?'on':'', 'model '+(h.model||'—'));
+    pill('#pAgents','on', (h.agents?h.agents.length:0)+' agents');
+    const authed = h.copilot==='ok' || h.copilot===true || h.copilot==='ready';
+    pill('#pAuth', authed?'on':'wait', 'copilot '+(h.copilot||'—'));
+    renderAuth(authed, h);
+    return h;
+  }catch(e){ pill('#pConn','err','offline'); return null; }
+}
+function renderAuth(authed, h){
+  const box=$('#authbox');
+  if(authed){ box.className='authbox ok show'; box.innerHTML='✓ <b>GitHub Copilot authorized</b> — chatting and lending are live. <span class="muted sm">model '+(h.model||'')+'</span>'; return; }
+  box.className='authbox show';
+  box.innerHTML = `<b>Log in with GitHub</b> to authorize this brainstem (Copilot device-code flow). <span class="muted sm">Borrowers use your auth; nobody sees your token.</span><br><button id="dologin" class="p" style="margin-top:10px">Log in with GitHub →</button> <span id="loginui" class="sm"></span>`;
+  $('#dologin').onclick=doLogin;
+}
+async function doLogin(){
+  const ui=$('#loginui'); ui.textContent=' starting…';
+  try{
+    const d=await live.startLogin();
+    if(d.error){ ui.textContent=' '+d.error; return; }
+    const uri=d.verification_uri||d.verification_url||'https://github.com/login/device';
+    ui.innerHTML = ` open <a href="${uri}" target="_blank">${uri}</a> and enter <span class="code">${d.user_code||''}</span>`;
+    const iv=setInterval(async ()=>{
+      const p=await live.pollLogin().catch(()=>({status:'pending'}));
+      if(p.status==='success'||p.access_token||p.status==='ok'){ clearInterval(iv); ui.innerHTML=' ✓ authorized'; toast('GitHub authorized'); refreshHealth(); }
+      else if(p.status==='expired'){ clearInterval(iv); ui.textContent=' code expired — try again'; }
+    }, 3500);
+  }catch(e){ ui.textContent=' login failed: '+(e.message||e); }
+}
+
+async function refreshAgents(){
+  try{ const files=await live.listAgents();
+    const real=files.filter(f=>f.filename!=='basic_agent.py');
+    $('#agentsN').textContent='· '+real.length;
+    $('#agents').innerHTML = real.map(f=>{
+      const names=(f.agents&&f.agents.length)?f.agents.join(', '):'<span class="muted">(did not load)</span>';
+      return `<div class="arow"><div><b>${names}</b><div class="fn">${f.filename}</div></div><a href="${live.exportUrl(f.filename)}" title="export .py">export ↓</a></div>`;
+    }).join('') || '<div class="muted sm">no agents</div>';
+  }catch(e){ $('#agents').innerHTML='<div class="muted sm">could not list agents</div>'; }
+}
+
+async function connect(){
+  const base=$('#url').value.trim(); pill('#pConn','wait','connecting…');
+  live = createLiveBrainstem({ base }); window.__live=live;
+  const h=await refreshHealth();
+  if(!h){ toast('Could not reach '+base+' — is brainstem.py running?'); return; }
+  $('#send').disabled=false; await refreshAgents();
+  log('ok', `connected to <code>${base}</code> — <b>${(h.agents||[]).length} agents</b>, model ${h.model||'?'}`);
+}
+
+// ── chat ──
+async function send(){
+  const m=$('#msg').value.trim(); if(!m||!live) return;
+  $('#msg').value=''; addMsg('you', m); const pend=addMsg('brainstem','…');
+  try{
+    const r=await live.chat(m, history, sessionId);
+    if(r.session_id) sessionId=r.session_id;
+    const reply = r.response!=null ? r.response : ('⚠ '+(r.error||'no response'));
+    pend.remove(); addMsg('brainstem', reply); addLogs(r.agent_logs);
+    history.push({role:'user',content:m}, {role:'assistant',content:reply});
+  }catch(e){ pend.remove(); addMsg('brainstem','⚠ '+(e.message||e)); }
+}
+
+// ── agents drag-drop import / hot-load ──
+async function importFiles(fileList){
+  for(const f of fileList){ if(!f.name.endsWith('.py')){ toast('only .py agents'); continue; }
+    log('warn', `importing <code>${f.name}</code>…`);
+    try{ const r=await live.importAgent(f);
+      if(r.error){ toast(r.error); log('bad', `import <code>${f.name}</code>: ${r.error}`); }
+      else{ toast(r.message||'imported'); log('ok', `🧩 hot-loaded <code>${f.name}</code>`); await refreshAgents(); }
+    }catch(e){ toast('import failed'); log('bad','import failed: '+(e.message||e)); }
+  }
+}
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop', e=>{ if(!live){toast('connect first');return;} importFiles(e.dataTransfer.files); });
+$('#browse').onclick=e=>{e.preventDefault(); $('#file').click();};
+$('#file').onchange=e=>{ if(!live){toast('connect first');return;} importFiles(e.target.files); };
+
+// ── lend over QR (Trystero) — supervise every borrowed call ──
+async function startLend(){
+  lent=true;
+  const roomId=newRoomId(); const url=BORROW+'#room='+roomId+'&token='+TOKEN;
+  $('#room').textContent=roomId; $('#token').textContent=TOKEN;
+  $('#qr').innerHTML=''; try{ new QRCode($('#qr'), { text:url, width:190, height:190 }); }catch(e){ $('#qr').textContent=url; }
+  $('#cta').innerHTML='scan to borrow · <a href="'+url+'" target="_blank">open borrower view ↗</a>';
+  log('warn', `channel opened <code>${roomId}</code> — waiting for a borrower…`);
+  try{
+    await lendBrainstem({ roomId, mcp: (req)=> live ? live.mcp(req) : Promise.resolve({jsonrpc:'2.0',id:req&&req.id,result:{content:[{type:'text',text:'⚠ the host has not connected to its brainstem yet — try again in a moment'}],isError:true}}), token:TOKEN, on:{
+      join:  id=>log('join', `🟢 borrower <code>${id.slice(0,8)}</code> connected`),
+      leave: id=>log('warn', `borrower <code>${(id||'').slice(0,8)}</code> left`),
+      reject:id=>log('bad', `⛔ rejected <code>${(id||'').slice(0,8)}</code> — bad token`),
+      request: ({peerId, rpc, response})=>{ borrows++;
+        const who=(peerId||'').slice(0,8); const nm=rpc?.params?.name||rpc?.method;
+        if(nm==='chat'){ const q=rpc?.params?.arguments?.message||''; const meta=response?.result?._meta||{};
+          const reply=(response?.result?.content?.[0]?.text||'').replace(/\s+/g,' ').slice(0,90);
+          log('ok', `<code>${who}</code> asked: “${q.slice(0,60)}” → <span class="muted">${reply}…</span>${meta.agent_logs?' <code>[agents ran]</code>':''}`); }
+        else log('join', `<code>${who}</code> called <code>${nm}</code>`);
+      }
+    }});
+    log('ok', 'brainstem is now <b>lendable</b>.'); window.__lendRoom=roomId;
+  }catch(e){ log('bad','lend signaling failed: '+(e.message||e)); }
+}
+
+$('#connect').onclick=connect;
+$('#send').onclick=send;
+$('#msg').addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+// render the QR / open the borrow channel immediately, then connect to the brainstem
+startLend();
+connect();
+</script>
+</body></html>

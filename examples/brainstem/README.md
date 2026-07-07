@@ -28,16 +28,37 @@
 2. Use the in-tab console (chat / run_agent) — or **scan the QR** with a phone to drive it from another device.
 
 ## Demos
-- **The Brainstem Borrower** — **[demos/brainstem-borrower.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/brainstem-borrower.html)**
-  Your machine does the thinking; a stranger **borrows the answer** through a secure channel handed to
-  them by a QR. Open it, keep the tab open, and watch the **live borrow log** + **no-server ledger** as
-  someone scans and runs your `meeting_cost` agent. The borrower lands on
-  [demos/borrow.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/borrow.html) —
-  a big verified number computed on *your* machine, over an encrypted P2P channel, with no server.
 
-The runtime is welded into a reusable module, **`brainstem.mjs`** (`createBrainstem` = verify-before-exec
-+ MCP; `lendBrainstem` / `borrowBrainstem` = the serverless P2P host/client). `host.html`, `connect.html`,
-and both demos are thin UIs over it.
+### 🔴 Lend your **live** brainstem (the real thing)
+**[demos/lend-brainstem.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/lend-brainstem.html)**
+turns your **running `brainstem.py`** (real loaded agents + your GitHub-Copilot auth) into a **serverless
+MCP** you lend over a QR. The browser tab is the whole server: it wraps the kernel's HTTP API
+(`/chat`, `/agents`, `/login`) as MCP tools and relays borrowed calls peer-to-peer — **only you touch
+`localhost`**. Features:
+- **GitHub login** surfaced from the brainstem's device-code flow (`/login` → `/login/poll`).
+- **Loaded-agents panel** with **export** (`/agents/export`) and **drag-and-drop hot-load** (`/agents/import`).
+- **Real chat** (the actual `/chat` tool-calling loop, with `agent_logs`).
+- **Lend over QR** + **supervise every borrowed call** (who asked what, which agents ran).
+
+A remote borrower opens **[demos/borrow-brainstem.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/borrow-brainstem.html)**
+(from the QR) and chats with *your* brainstem — its real agents + model — over an encrypted P2P channel.
+> Verified end-to-end against a live brainstem: borrower saw all 10 loaded agents + `claude-sonnet-5`, a
+> chat relayed P2P → host → `:7071` → Copilot **ran real agents**, and the host supervised every call.
+>
+> Served on `https` (Pages)? point the host at the TLS proxy: `?brainstem=https://localhost:7072`
+> (`tls_proxy.py`). Or just open the host page locally over `http`.
+
+### 🟢 The Brainstem Borrower (no-install, static)
+**[demos/brainstem-borrower.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/brainstem-borrower.html)**
+needs no local server — the brainstem is a static Pyodide one (3 verify-before-exec agents). Keep the tab
+open and watch the **live borrow log** + **no-server ledger** as someone scans and runs your
+`meeting_cost` agent; the borrower lands on
+[demos/borrow.html](https://kody-w.github.io/rapp-static-mcp/examples/brainstem/demos/borrow.html) — a big
+verified number computed on *your* machine, over an encrypted P2P channel, with no server.
+
+The runtime is welded into a reusable module, **`brainstem.mjs`**: `createBrainstem` (static Pyodide +
+verify-before-exec) and `createLiveBrainstem` (wrap a live `brainstem.py`) both produce an `mcp(req)`;
+`lendBrainstem` / `borrowBrainstem` are the serverless P2P host/client. Every page here is a thin UI over it.
 
 ## Add an agent (RAPP style)
 1. Drop a single-file Python agent in `brain/agents/<id>.py` exporting `META` + `def perform(input): ...`.

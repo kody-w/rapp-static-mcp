@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You're borrowing a brainstem — live chat (no server)</title>
+<meta name="description" content="You scanned a QR and are chatting with someone else's running brainstem.py — its real loaded agents and GitHub-Copilot auth — over an encrypted peer-to-peer channel. No server in the middle.">
+<style>
+ :root{--bg:#0b0d18;--bg2:#0f1224;--panel:#161a2e;--line:#2c3252;--txt:#eef2ff;--dim:#9aa6cc;--neon:#7CFFB2;--cy:#5fd0ff;--gold:#ffcf3f;--bad:#ff6ad5}
+ *{box-sizing:border-box} html,body{margin:0;height:100%}
+ body{background:radial-gradient(900px 600px at 50% -10%,#1a2140 0,var(--bg) 60%);color:var(--txt);font:15px/1.5 system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+ a{color:var(--cy)} code{font-family:ui-monospace,monospace;color:var(--gold)}
+ header{padding:18px 18px 10px;max-width:760px;margin:auto;width:100%}
+ .tag{letter-spacing:3px;font-size:11px;color:var(--neon);font-weight:800}
+ h1{font-size:22px;margin:7px 0 3px;font-weight:850} h1 .g{background:linear-gradient(90deg,var(--gold),var(--cy));-webkit-background-clip:text;background-clip:text;color:transparent}
+ .sub{color:var(--dim);font-size:13px} .sub b{color:var(--txt)}
+ .st{display:inline-block;font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);color:var(--dim);background:#0c0e1c}
+ .st.on{border-color:var(--neon);color:var(--neon)} .st.err{border-color:var(--bad);color:var(--bad)}
+ main{flex:1;max-width:760px;margin:auto;width:100%;padding:6px 18px 18px;display:flex;flex-direction:column}
+ .chat{flex:1;min-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px}
+ .msg{max-width:88%;padding:10px 13px;border-radius:13px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+ .msg.u{align-self:flex-end;background:linear-gradient(90deg,#123,#0d2b3a);border:1px solid #1d4a5e}
+ .msg.a{align-self:flex-start;background:#12142a;border:1px solid var(--line)}
+ .msg .who{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+ .logs{align-self:flex-start;font-size:11.5px;color:var(--gold);font-family:ui-monospace,monospace;opacity:.9;padding-left:4px}
+ .agents{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px} .chip{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:3px 9px;background:#0c0e1c}
+ .cin{display:flex;gap:8px;margin-top:8px} .cin input{flex:1;background:#0c0e1c;border:1px solid var(--line);color:var(--txt);border-radius:11px;padding:12px 13px;font:inherit}
+ button{background:linear-gradient(90deg,var(--neon),var(--cy));color:#04120a;border:0;border-radius:11px;padding:12px 16px;font:inherit;font-weight:850;cursor:pointer}
+ button:disabled{opacity:.5;cursor:not-allowed}
+ footer{color:var(--dim);font-size:12px;text-align:center;padding:0 18px 18px;max-width:760px;margin:auto}
+</style></head><body>
+<header>
+ <div class="tag">◆ YOU ARE BORROWING A BRAINSTEM</div>
+ <h1>Chatting with a <span class="g">borrowed brainstem</span></h1>
+ <div class="sub">There's <b>no server</b>. You're talking to someone else's running <b>brainstem.py</b> — its real
+  loaded agents + their GitHub-Copilot auth — over an encrypted peer-to-peer channel. <span class="st" id="st">connecting…</span></div>
+ <div class="agents" id="agents"></div>
+</header>
+<main>
+ <div class="chat" id="chat"><div class="msg a"><div class="who">brainstem</div>Waiting for the lender's brainstem…</div></div>
+ <div class="cin"><input id="msg" placeholder="Ask the borrowed brainstem…" disabled><button id="send" disabled>Send</button></div>
+</main>
+<footer>rapp-static-mcp/1.0 · the lender's tab is the whole server · <a href="lend-brainstem.html">lend your own ↗</a></footer>
+<script type="module">
+import { borrowBrainstem } from '../brainstem.mjs';
+const $=s=>document.querySelector(s);
+const h=new URLSearchParams(location.hash.slice(1));
+const ROOM=h.get('room'), TOKEN=h.get('token');
+let call=null, history=[], sessionId='borrow-'+Math.random().toString(36).slice(2,8);
+function setSt(t,cls){ const el=$('#st'); el.textContent=t; el.className='st'+(cls?' '+cls:''); }
+function addMsg(who,text){ const d=document.createElement('div'); d.className='msg '+(who==='you'?'u':'a');
+  d.innerHTML=`<div class="who">${who}</div>`; d.appendChild(document.createTextNode(text)); $('#chat').appendChild(d); $('#chat').scrollTop=1e9; return d; }
+function addLogs(t){ if(!t) return; const d=document.createElement('div'); d.className='logs'; d.textContent='⚙ '+t.replace(/\s+/g,' ').slice(0,220); $('#chat').appendChild(d); $('#chat').scrollTop=1e9; }
+
+async function ready(){
+  $('#msg').disabled=false; $('#send').disabled=false; setSt('🟢 borrowing — live','on'); $('#msg').focus();
+  for(let attempt=0; attempt<5; attempt++){
+    try{
+      const init=await call('initialize',{}); const si=init.result?.serverInfo||{};
+      const t=await call('tools/call',{name:'list_agents',arguments:{}});
+      const files=(t.result?._meta?.agents)||[];
+      const names=files.flatMap(f=>f.agents||[]).filter(Boolean);
+      if(!names.length && attempt<4){ await new Promise(r=>setTimeout(r,1500)); continue; }
+      $('#agents').innerHTML = `<span class="chip">🧠 ${si.name||'brainstem'} v${si.version||'?'}</span>`+
+        (si.model?`<span class="chip">model ${si.model}</span>`:'')+
+        names.map(n=>`<span class="chip">🧩 ${n}</span>`).join('');
+      $('#chat').innerHTML=''; addMsg('brainstem', `You've borrowed a brainstem with ${names.length} agents`+(si.model?` running on ${si.model}`:'')+`. Ask it anything.`);
+      return;
+    }catch(e){ await new Promise(r=>setTimeout(r,1500)); }
+  }
+}
+if(!ROOM){ setSt('no channel — open via the QR','err'); }
+else{
+  try{
+    const conn=await borrowBrainstem({ roomId:ROOM, token:TOKEN, on:{ join:()=>ready() } });
+    call=conn.call;
+    setTimeout(()=>{ if($('#send').disabled) setSt('waiting for the lender tab…','err'); }, 8000);
+  }catch(e){ setSt('signaling failed: '+(e.message||e),'err'); }
+}
+async function send(){
+  const m=$('#msg').value.trim(); if(!m||!call) return;
+  $('#msg').value=''; addMsg('you',m); const pend=addMsg('brainstem','…'); $('#send').disabled=true;
+  try{
+    const r=await call('tools/call',{name:'chat',arguments:{message:m, history, session_id:sessionId}});
+    const meta=r.result?._meta||{}; if(meta.session_id) sessionId=meta.session_id;
+    const reply=r.result?.content?.[0]?.text||'(no reply)';
+    pend.remove(); addMsg('brainstem',reply); addLogs(meta.agent_logs);
+    history.push({role:'user',content:m},{role:'assistant',content:reply});
+  }catch(e){ pend.remove(); addMsg('brainstem','⚠ '+(e.message||e)); }
+  $('#send').disabled=false;
+}
+$('#send').onclick=send;
+$('#msg').addEventListener('keydown',e=>{ if(e.key==='Enter') send(); });
+</script></body></html>
