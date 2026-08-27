@@ -60,6 +60,33 @@ The runtime is welded into a reusable module, **`brainstem.mjs`**: `createBrains
 verify-before-exec) and `createLiveBrainstem` (wrap a live `brainstem.py`) both produce an `mcp(req)`;
 `lendBrainstem` / `borrowBrainstem` are the serverless P2P host/client. Every page here is a thin UI over it.
 
+### Add the live Brainstem to Scout or another desktop MCP client
+
+`live-stdio.mjs` exposes the running Brainstem as a standard line-delimited stdio MCP server. It is
+an external adapter: it calls `/health` and `/chat` and does not modify the Brainstem source or state.
+
+```json
+{
+  "name": "RAPP Brainstem",
+  "command": "/opt/homebrew/bin/node",
+  "args": [
+    "/absolute/path/to/rapp-static-mcp/examples/brainstem/live-stdio.mjs"
+  ],
+  "env": {
+    "RAPP_BRAINSTEM_URL": "http://localhost:7071"
+  }
+}
+```
+
+Tools:
+
+- `brainstem_status` - health, model, authentication, and loaded agents.
+- `brainstem_chat` - the existing `user_input` -> `/chat` path, with MCP-process session/history continuity.
+- `brainstem_new_session` - reset that MCP-held conversation without restarting either process.
+
+For a non-loopback Brainstem, also set `RAPP_BRAINSTEM_SECRET`; it is sent only as the
+`X-Brainstem-Secret` header and is never printed.
+
 ## Add an agent (RAPP style)
 1. Drop a single-file Python agent in `brain/agents/<id>.py` exporting `META` + `def perform(input): ...`.
 2. Add it to `brain/agents.json`.

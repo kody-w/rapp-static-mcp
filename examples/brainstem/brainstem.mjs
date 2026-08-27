@@ -92,10 +92,20 @@ _res = _json.dumps(_ns[${JSON.stringify(a.entry)}](_json.loads(_in_json)))
 // createBrainstem: instead of Pyodide + a static RAR, tools proxy to the live server's
 // HTTP API (real loaded agents, real GitHub-Copilot auth, real tool-calling loop).
 // The kernel is never touched — we only call its documented endpoints.
-export function createLiveBrainstem({ base = 'http://localhost:7071' } = {}){
+export function createLiveBrainstem({ base = 'http://localhost:7071', secret = '' } = {}){
   base = base.replace(/\/+$/,'');
-  const jget  = (p)      => fetch(base+p).then(r=>r.json());
-  const jpost = (p, body)=> fetch(base+p, { method:'POST', headers: body?{'Content-Type':'application/json'}:undefined, body: body?JSON.stringify(body):undefined }).then(r=>r.json());
+  const authHeaders = secret ? {'X-Brainstem-Secret': secret} : {};
+  const readJson = async (r) => {
+    const body = await r.json().catch(()=>({error:`HTTP ${r.status}`}));
+    if(!r.ok) throw new Error(typeof body.error==='string' ? body.error : JSON.stringify(body.error||body));
+    return body;
+  };
+  const jget  = (p)      => fetch(base+p, {headers:authHeaders}).then(readJson);
+  const jpost = (p, body)=> fetch(base+p, {
+    method:'POST',
+    headers: body ? {...authHeaders,'Content-Type':'application/json'} : authHeaders,
+    body: body ? JSON.stringify(body) : undefined
+  }).then(readJson);
 
   const health      = ()               => jget('/health');
   const loginStatus = ()               => jget('/login/status');
@@ -103,8 +113,12 @@ export function createLiveBrainstem({ base = 'http://localhost:7071' } = {}){
   const pollLogin   = ()               => jpost('/login/poll');
   const listAgents  = async ()         => (await jget('/agents')).files || [];
   const exportUrl   = (filename)       => base+'/agents/export/'+encodeURIComponent(filename);
-  const chat        = (message, history, session_id) =>
-    jpost('/chat', { user_input:message, conversation_history:history||[], session_id });
+  const chat        = (message, history, session_id, idempotency_key) => {
+    const body = { user_input:message, conversation_history:history||[] };
+    if(session_id) body.session_id = session_id;
+    if(idempotency_key) body.idempotency_key = idempotency_key;
+    return jpost('/chat', body);
+  };
   async function importAgent(file){
     const fd = new FormData(); fd.append('file', file, file.name);
     return fetch(base+'/agents/import', { method:'POST', body:fd }).then(r=>r.json());
