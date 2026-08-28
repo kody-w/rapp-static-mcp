@@ -87,6 +87,42 @@ Tools:
 For a non-loopback Brainstem, also set `RAPP_BRAINSTEM_SECRET`; it is sent only as the
 `X-Brainstem-Secret` header and is never printed.
 
+### Let Brainstem call back into Scout over the same MCP connection
+
+MCP is bidirectional. A client normally calls server tools, but a server can make a nested
+`sampling/createMessage` request back to a client that advertised `capabilities.sampling` during
+initialization. An optional drop-in callback agent can originate that handoff without changing the
+Brainstem kernel or Grail. Its marker travels through the existing `agent_logs`
+field, and the adapter validates and removes it before calling the client. The adapter also accepts
+a structured `mcp_callbacks` response field from compatible hosts.
+
+The explicit caller flag remains available as a compatibility path:
+
+```json
+{
+  "name": "brainstem_chat",
+  "arguments": {
+    "user_input": "Review this through the Brainstem, then call Scout back with the result.",
+    "callback_to_scout": true,
+    "callback_max_tokens": 1200
+  }
+}
+```
+
+The flow is:
+
+```text
+Scout --tools/call--> live-stdio.mjs --POST /chat--> Brainstem
+Scout <--sampling/createMessage-- live-stdio.mjs <--response-- Brainstem
+Scout --sampling result--> live-stdio.mjs --tool result--> Scout
+```
+
+The callback uses the same long-lived stdio transport and the client's own model access; the
+adapter holds no model key. It is a nested, user-governed callback while the original tool call is
+open, not an unbounded proactive push after Scout disconnects. If the MCP client does not advertise
+sampling, the tool result is marked as an error with code `sampling-not-supported` while preserving
+the successful Brainstem response.
+
 ## Add an agent (RAPP style)
 1. Drop a single-file Python agent in `brain/agents/<id>.py` exporting `META` + `def perform(input): ...`.
 2. Add it to `brain/agents.json`.
