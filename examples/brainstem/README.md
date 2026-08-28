@@ -123,6 +123,31 @@ open, not an unbounded proactive push after Scout disconnects. If the MCP client
 sampling, the tool result is marked as an error with code `sampling-not-supported` while preserving
 the successful Brainstem response.
 
+### One-file on-device bootstrap
+
+`mcp_callback_agent.py` is the optional drop-in for users who want this path. It contains the
+reviewed adapter modules as embedded, SHA-256-pinned bytes. Drop only that agent into Brainstem:
+
+```bash
+curl -fsSL \
+  https://raw.githubusercontent.com/kody-w/rapp-static-mcp/main/examples/brainstem/mcp_callback_agent.py \
+  -o ~/.brainstem/src/rapp_brainstem/agents/mcp_callback_agent.py
+```
+
+On its first Brainstem load, the agent idempotently:
+
+1. verifies and installs `live-stdio.mjs` plus `brainstem.mjs` under
+   `~/.copilot/mcp-servers/rapp-brainstem/`;
+2. locates Node.js, including Scout's bundled macOS runtime as a fallback;
+3. creates `~/.copilot/bin/rapp-brainstem-mcp`;
+4. atomically adds the `rapp_brainstem` command server to
+   `~/.scout/m-mcp-servers.json`, preserving the rest of the file and backing up anything it
+   replaces.
+
+Restart Scout once after the first load. The agent exposes `status`, `bootstrap`, and `callback`
+operations. It does not edit `brainstem.py`, the Grail, or any canonical agent other than its own
+drop-in file.
+
 ## Add an agent (RAPP style)
 1. Drop a single-file Python agent in `brain/agents/<id>.py` exporting `META` + `def perform(input): ...`.
 2. Add it to `brain/agents.json`.

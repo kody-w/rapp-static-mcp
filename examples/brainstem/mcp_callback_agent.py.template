@@ -1,0 +1,452 @@
+"""Self-bootstrapping Brainstem-to-MCP callback agent.
+
+Drop this one file into a Brainstem agents directory. On first load it installs
+the exact embedded stdio adapter, creates a launcher, and registers the local
+RAPP Brainstem MCP server with an on-device Microsoft Scout installation.
+It never modifies brainstem.py or the RAPP/1 Grail.
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
+import tempfile
+import time
+from pathlib import Path
+
+try:
+    from agents.basic_agent import BasicAgent
+except ImportError:
+    class BasicAgent:
+        def __init__(self, name=None, metadata=None):
+            if name is not None:
+                self.name = name
+            if metadata is not None:
+                self.metadata = metadata
+
+        def perform(self, **kwargs):
+            return "Not implemented."
+
+        def system_context(self):
+            return None
+
+
+__manifest__ = {
+    "schema": "rapp-agent/1.0",
+    "name": "@rapp/mcp_callback_agent",
+    "version": "1.0.0",
+    "display_name": "MCP Callback",
+    "description": (
+        "A self-bootstrapping drop-in agent that installs the local RAPP "
+        "Brainstem MCP adapter and lets Brainstem call an on-device Scout or "
+        "other sampling-capable MCP client back without changing the Grail."
+    ),
+    "author": "RAPP",
+    "tags": [
+        "mcp",
+        "callback",
+        "scout",
+        "handoff",
+        "interop",
+        "bootstrap",
+        "local-first",
+    ],
+    "category": "integrations",
+    "quality_tier": "official",
+    "requires_env": [],
+    "dependencies": ["@rapp/basic_agent"],
+}
+
+
+_CALLBACK_PREFIX = "RAPP_MCP_CALLBACK_V1:"
+_ADAPTER_COMMIT = "@@ADAPTER_COMMIT@@"
+_LIVE_STDIO_SHA256 = "@@LIVE_STDIO_SHA256@@"
+_BRAINSTEM_SHA256 = "@@BRAINSTEM_SHA256@@"
+_LIVE_STDIO_B64 = @@LIVE_STDIO_B64@@
+_BRAINSTEM_B64 = @@BRAINSTEM_B64@@
+
+
+def _sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def _env_enabled(name):
+    return str(os.getenv(name) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _decode_payload(label, encoded, expected_sha256):
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except Exception as error:
+        raise RuntimeError(f"Embedded {label} is not valid base64") from error
+    actual = _sha256(data)
+    if actual != expected_sha256:
+        raise RuntimeError(
+            f"Embedded {label} failed SHA-256 verification "
+            f"(expected {expected_sha256}, got {actual})"
+        )
+    return data
+
+
+def _atomic_replace(path, data, executable=False):
+    path = Path(path).expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = path.read_bytes() if path.is_file() else None
+    if existing == data:
+        if executable and os.name != "nt":
+            path.chmod(path.stat().st_mode | stat.S_IXUSR)
+        return {"status": "unchanged", "path": str(path), "backup": None}
+
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent),
+    )
+    backup = None
+    try:
+        with os.fdopen(descriptor, "wb") as temporary:
+            temporary.write(data)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        if executable and os.name != "nt":
+            os.chmod(temporary_name, 0o700)
+        if existing is not None:
+            backup = path.with_name(
+                path.name + f".bak-{int(time.time() * 1000)}"
+            )
+            shutil.copy2(path, backup)
+        os.replace(temporary_name, path)
+    except Exception:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
+        raise
+    return {
+        "status": "installed" if existing is None else "replaced",
+        "path": str(path),
+        "backup": str(backup) if backup is not None else None,
+    }
+
+
+def _node_candidates():
+    configured = str(os.getenv("RAPP_MCP_NODE") or "").strip()
+    if configured:
+        yield Path(configured).expanduser()
+    discovered = shutil.which("node")
+    if discovered:
+        yield Path(discovered)
+    if os.name == "nt":
+        for root_name in ("LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)"):
+            root = os.getenv(root_name)
+            if root:
+                yield (
+                    Path(root)
+                    / "Microsoft Scout"
+                    / "resources"
+                    / "node"
+                    / "node.exe"
+                )
+    else:
+        for applications in (
+            Path("/Applications"),
+            Path.home() / "Applications",
+        ):
+            yield (
+                applications
+                / "Microsoft Scout.app"
+                / "Contents"
+                / "Resources"
+                / "node"
+                / "node.app"
+                / "Contents"
+                / "MacOS"
+                / "node"
+            )
+
+
+def _node_path():
+    for candidate in _node_candidates():
+        expanded = Path(os.path.abspath(candidate.expanduser()))
+        if expanded.is_file() and os.access(expanded, os.X_OK):
+            return expanded
+    return None
+
+
+def _shell_quote(value):
+    return "'" + str(value).replace("'", "'\"'\"'") + "'"
+
+
+def _launcher_bytes(node_path, adapter_path):
+    if os.name == "nt":
+        return (
+            "@echo off\r\n"
+            f'"{node_path}" "{adapter_path}" %*\r\n'
+        ).encode("utf-8")
+    return (
+        "#!/bin/sh\n"
+        f"exec {_shell_quote(node_path)} {_shell_quote(adapter_path)} \"$@\"\n"
+    ).encode("utf-8")
+
+
+def _scout_config_path():
+    configured = str(os.getenv("RAPP_SCOUT_MCP_CONFIG") or "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return (Path.home() / ".scout" / "m-mcp-servers.json").resolve()
+
+
+def _configure_scout(launcher):
+    path = _scout_config_path()
+    if path.is_file():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise RuntimeError(f"Scout MCP config is unreadable: {path}") from error
+    else:
+        payload = {"servers": {}}
+    if not isinstance(payload, dict):
+        raise RuntimeError("Scout MCP config root must be an object")
+    servers = payload.setdefault("servers", {})
+    if not isinstance(servers, dict):
+        raise RuntimeError("Scout MCP config servers must be an object")
+
+    existing = servers.get("rapp_brainstem")
+    if existing is not None and not isinstance(existing, dict):
+        raise RuntimeError("Scout rapp_brainstem entry must be an object")
+    entry = dict(existing or {})
+    if entry.get("builtin") is True:
+        raise RuntimeError("Scout rapp_brainstem entry is reserved as built-in")
+    config = entry.get("config")
+    if config is not None and not isinstance(config, dict):
+        raise RuntimeError("Scout rapp_brainstem config must be an object")
+    config = dict(config or {})
+    config.update({
+        "name": "RAPP Brainstem",
+        "type": "command",
+        "command": str(launcher),
+    })
+    config.pop("url", None)
+    entry.update({
+        "builtin": False,
+        "config": config,
+        "tools": (
+            entry.get("tools")
+            if isinstance(entry.get("tools"), list)
+            else []
+        ),
+    })
+    servers["rapp_brainstem"] = entry
+    encoded = (
+        json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    return _atomic_replace(path, encoded)
+
+
+def _bootstrap():
+    adapter_dir = Path(
+        os.getenv(
+            "RAPP_MCP_ADAPTER_DIR",
+            str(Path.home() / ".copilot" / "mcp-servers" / "rapp-brainstem"),
+        )
+    ).expanduser().resolve()
+    live_path = adapter_dir / "live-stdio.mjs"
+    brainstem_path = adapter_dir / "brainstem.mjs"
+    live_bytes = _decode_payload(
+        "live-stdio.mjs",
+        _LIVE_STDIO_B64,
+        _LIVE_STDIO_SHA256,
+    )
+    brainstem_bytes = _decode_payload(
+        "brainstem.mjs",
+        _BRAINSTEM_B64,
+        _BRAINSTEM_SHA256,
+    )
+    files = [
+        _atomic_replace(live_path, live_bytes),
+        _atomic_replace(brainstem_path, brainstem_bytes),
+    ]
+
+    node = _node_path()
+    if node is None:
+        return {
+            "status": "partial",
+            "code": "node-not-found",
+            "message": (
+                "The adapter files are installed, but no Node.js executable "
+                "was found. Install Node.js or set RAPP_MCP_NODE."
+            ),
+            "adapter_commit": _ADAPTER_COMMIT,
+            "files": files,
+            "scout_configured": False,
+        }
+
+    bin_dir = Path(
+        os.getenv(
+            "RAPP_MCP_BIN_DIR",
+            str(Path.home() / ".copilot" / "bin"),
+        )
+    ).expanduser().resolve()
+    launcher = bin_dir / (
+        "rapp-brainstem-mcp.cmd"
+        if os.name == "nt"
+        else "rapp-brainstem-mcp"
+    )
+    files.append(
+        _atomic_replace(
+            launcher,
+            _launcher_bytes(node, live_path),
+            executable=True,
+        )
+    )
+    scout = _configure_scout(launcher)
+    return {
+        "status": "ok",
+        "operation": "bootstrap",
+        "adapter_commit": _ADAPTER_COMMIT,
+        "adapter_sha256": {
+            "live-stdio.mjs": _LIVE_STDIO_SHA256,
+            "brainstem.mjs": _BRAINSTEM_SHA256,
+        },
+        "node": str(node),
+        "launcher": str(launcher),
+        "files": files,
+        "scout_config": scout,
+        "scout_configured": True,
+        "next_step": (
+            "Restart Scout once so it reloads the local MCP server entry."
+        ),
+    }
+
+
+def _bootstrap_safely():
+    try:
+        return _bootstrap()
+    except Exception as error:
+        return {
+            "status": "error",
+            "operation": "bootstrap",
+            "code": type(error).__name__,
+            "message": str(error),
+            "adapter_commit": _ADAPTER_COMMIT,
+        }
+
+
+_BOOTSTRAP_STATE = _bootstrap_safely()
+
+
+class McpCallbackAgent(BasicAgent):
+    def __init__(self):
+        self.name = "McpCallback"
+        self.metadata = {
+            "name": self.name,
+            "description": (
+                "Call the connected on-device Scout or MCP host back. The "
+                "agent bootstraps its verified local adapter on first load. "
+                "Use operation=status to inspect bootstrap state, bootstrap "
+                "to retry it, or callback to hand a message back."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["callback", "status", "bootstrap"],
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": (
+                            "Exact Brainstem result or handoff message the "
+                            "connected MCP host should continue."
+                        ),
+                    },
+                    "target": {
+                        "type": "string",
+                        "enum": ["mcp-client", "scout"],
+                    },
+                    "max_tokens": {
+                        "type": "integer",
+                        "minimum": 64,
+                        "maximum": 4096,
+                    },
+                },
+                "additionalProperties": False,
+            },
+        }
+        super().__init__(name=self.name, metadata=self.metadata)
+
+    def system_context(self):
+        state = _BOOTSTRAP_STATE
+        if state.get("status") == "ok":
+            return (
+                "MCP callback bridge is installed locally. When the user asks "
+                "Brainstem to call Scout or the connected MCP host back, use "
+                "McpCallback with operation=callback and the exact handoff."
+            )
+        return (
+            "MCP callback bootstrap is not ready: "
+            f"{state.get('code') or state.get('status')} - "
+            f"{state.get('message') or 'unknown error'}. "
+            "Use McpCallback operation=status before claiming callbacks work."
+        )
+
+    def perform(self, **kwargs):
+        global _BOOTSTRAP_STATE
+        operation = str(kwargs.get("operation") or "callback").strip().lower()
+        if operation == "status":
+            return json.dumps(_BOOTSTRAP_STATE, indent=2, sort_keys=True)
+        if operation == "bootstrap":
+            _BOOTSTRAP_STATE = _bootstrap_safely()
+            return json.dumps(_BOOTSTRAP_STATE, indent=2, sort_keys=True)
+        if operation != "callback":
+            return "Error: operation must be callback, status, or bootstrap."
+
+        message = kwargs.get("message")
+        if not isinstance(message, str) or not message.strip():
+            return "Error: message must be a non-empty string."
+        message = message.strip()
+        if len(message) > 100_000:
+            return "Error: message exceeds 100000 characters."
+        target = str(kwargs.get("target") or "mcp-client").strip().lower()
+        if target not in {"mcp-client", "scout"}:
+            return "Error: target must be mcp-client or scout."
+        max_tokens = kwargs.get("max_tokens", 1200)
+        if (
+            isinstance(max_tokens, bool)
+            or not isinstance(max_tokens, int)
+            or not 64 <= max_tokens <= 4096
+        ):
+            return "Error: max_tokens must be an integer from 64 to 4096."
+        if _BOOTSTRAP_STATE.get("status") != "ok":
+            return json.dumps({
+                "status": "error",
+                "code": "callback-bridge-not-ready",
+                "bootstrap": _BOOTSTRAP_STATE,
+            }, indent=2, sort_keys=True)
+
+        payload = {
+            "schema": "rapp-mcp-callback/1.0",
+            "target": target,
+            "mode": "sampling",
+            "message": message,
+            "max_tokens": max_tokens,
+        }
+        encoded = base64.urlsafe_b64encode(
+            json.dumps(
+                payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).decode("ascii").rstrip("=")
+        return (
+            "Callback requested through the connected MCP host.\n"
+            f"{_CALLBACK_PREFIX}{encoded}"
+        )
