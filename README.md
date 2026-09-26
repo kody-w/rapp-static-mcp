@@ -1,5 +1,9 @@
 # rapp-static-mcp
 
+<!-- rapp1:network-header:start -->
+[![RAPP/1](https://kody-w.github.io/rapp-hive-public/portfolio/badges/rapp-static-mcp.svg)](https://github.com/kody-w/rapp-hive-public/blob/main/portfolio/repos/rapp-static-mcp.md) · **New to RAPP?** [Start here: get your Brainstem →](https://github.com/kody-w/rapp-installer#start-here)
+<!-- rapp1:network-header:end -->
+
 **Make an MCP server for any use case — with no server.**
 
 A `rapp-static-mcp` is a Git repo whose files *are* the MCP: tools bind to **content-addressed
